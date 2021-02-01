@@ -2,6 +2,12 @@ PKGNAME=toybox
 PKGVER=0.8.3
 
 build() {
+	unset CC
+	unset CXX
+	unset LD
+	export CC=gcc
+	export CXX=g++
+	export LD=gcc
 	CROSS_COMPILE=x86_64-onyx- $MAKE
 }
 

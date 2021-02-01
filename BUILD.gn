@@ -1,0 +1,7 @@
+import("//build/pkgbuild.gni")
+
+pkgbuild("toybox") {
+    pkgname = "toybox"
+    pkgver = "0.8.3"
+    input_dir = rebase_path(".", "")
+}
