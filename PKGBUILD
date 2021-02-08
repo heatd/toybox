@@ -8,6 +8,7 @@ build() {
 	export CC=gcc
 	export CXX=g++
 	export LD=gcc
+	CFLAGS="$CFLAGS --sysroot=$SYSROOT"
 	CROSS_COMPILE=x86_64-onyx- $MAKE
 }
 
