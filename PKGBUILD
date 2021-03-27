@@ -2,14 +2,15 @@ PKGNAME=toybox
 PKGVER=0.8.3
 
 build() {
-	unset CC
-	unset CXX
-	unset LD
-	export CC=gcc
-	export CXX=g++
-	export LD=gcc
-	CFLAGS="$CFLAGS --sysroot=$SYSROOT"
-	CROSS_COMPILE=x86_64-onyx- $MAKE
+	ln -sf $CC_BARE_PATH $HOST-cc
+	ln -sf $(which $STRIP) $HOST-strip
+	ALL_CFLAGS=$(echo "$CC" | sed 's/^[^ ]* //')
+	PATH=$PWD:$PATH
+	CC=cc
+	STRIP=strip
+	CROSS_COMPILE=$HOST- CFLAGS=$ALL_CFLAGS $MAKE
+	rm $HOST-cc
+	rm $HOST-strip
 }
 
 package() {
