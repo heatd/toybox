@@ -174,7 +174,7 @@ void *memmem(const void *haystack, size_t haystack_length,
 
 // Linux headers not listed by POSIX or LSB
 #include <sys/mount.h>
-#if defined (__linux__) || defined(__onyx__)
+#if defined(__linux__) || defined(__onyx__)
 #include <sys/statfs.h>
 #include <sys/swap.h>
 #include <sys/sysinfo.h>

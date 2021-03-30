@@ -1,5 +1,5 @@
 PKGNAME=toybox
-PKGVER=0.8.3
+PKGVER=0.8.4
 
 build() {
 	ln -sf $CC_BARE_PATH $HOST-cc

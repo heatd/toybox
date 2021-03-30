@@ -49,11 +49,10 @@ GLOBALS(
   long P;
 )
 
-// This was a linux kernel syscall added in 2.6.36 (git c022a0acad53) which
+// This is a linux kernel syscall added in 2.6.36 (git c022a0acad53) which
 // glibc only exports a wrapper prototype for if you #define _FSF_HURD_RULZE.
-// Now it's rlimit, Onyx specific
-int rlimit(pid_t pid, int resource, struct rlimit *old_limit, const struct rlimit *new_limit,
-           unsigned int flags);
+int prlimit(pid_t pid, int resource, const struct rlimit *new_limit,
+  struct rlimit *old_limit);
 
 // I'd like to sort the RLIMIT values 0-15, but mips, alpha and sparc
 // override the asm-generic values for 5-9. Also, the kernel implementation
@@ -79,7 +78,7 @@ void ulimit_main(void)
 
     int get = toys.optflags&(FLAG_a|(1<<i));
 
-    if (get && rlimit(TT.P, map[i], &rr, 0, 0)) perror_exit("-%c", flags[i]);
+    if (get && prlimit(TT.P, map[i], 0, &rr)) perror_exit("-%c", flags[i]);
     if (!toys.optc) {
       if (FLAG(a)) printf("-%c: ", flags[i]);
       if (get) {
@@ -114,6 +113,6 @@ void ulimit_main(void)
 
     if (FLAG(H)) rr.rlim_max = val;
     else rr.rlim_cur = val;
-    if (rlimit(TT.P, map[i], 0, &rr, 0)) perror_exit(0);
+    if (prlimit(TT.P, map[i], &rr, 0)) perror_exit(0);
   }
 }
