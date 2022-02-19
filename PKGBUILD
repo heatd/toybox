@@ -4,7 +4,7 @@ PKGVER=0.8.4
 build() {
 	ln -sf $CC_BARE_PATH $HOST-cc
 	ln -sf $(which $STRIP) $HOST-strip
-	ALL_CFLAGS=$(echo "$CC" | sed 's/^[^ ]* //')
+	ALL_CFLAGS=$(echo "$CC" | sed 's/^[^ ]* //') $(CFLAGS)
 	PATH=$PWD:$PATH
 	CC=cc
 	STRIP=strip
