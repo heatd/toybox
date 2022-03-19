@@ -38,7 +38,7 @@ config STTY
 #define FOR_stty
 #include "toys.h"
 
-#include <linux/tty.h>
+#include <termios.h>
 
 GLOBALS(
   char *F;
@@ -337,7 +337,7 @@ void stty_main(void)
 
       if (!strcmp(arg, "size")) show_size(0);
       else if (!strcmp(arg, "speed")) show_speed(&old, 0);
-      else if (!strcmp(arg, "line")) new.c_line = get_arg(&i, NR_LDISCS);
+      else if (!strcmp(arg, "line")) new.c_line = get_arg(&i, 1);
       else if (!strcmp(arg, "min")) new.c_cc[VMIN] = get_arg(&i, 255);
       else if (!strcmp(arg, "time")) new.c_cc[VTIME] = get_arg(&i, 255);
       else if (sscanf(arg, "%x:%x:%x:%x:%n", &tmp.c_iflag, &tmp.c_oflag,
