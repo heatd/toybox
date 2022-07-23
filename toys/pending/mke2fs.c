@@ -544,7 +544,7 @@ void mke2fs_main(void)
 {
   int i, temp;
   off_t length;
-  uint32_t usedblocks, usedinodes, dtbblk;
+  uint32_t usedblocks, usedinodes;
   struct dirtree *dti, *dtb;
   struct ext2_superblock sb;
 
@@ -632,7 +632,7 @@ void mke2fs_main(void)
   put_zeroes(1024);
 
   // Loop through block groups, write out each one.
-  dtbblk = usedblocks = usedinodes = 0;
+  usedblocks = usedinodes = 0;
   for (i=0; i<TT.groups; i++) {
     struct ext2_inode *in = (struct ext2_inode *)toybuf;
     uint32_t start, itable, used, end;
