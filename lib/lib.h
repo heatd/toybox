@@ -112,7 +112,7 @@ void show_help(FILE *out, int full);
 // Tell xopen and friends to print warnings but return -1 as necessary
 // The largest O_BLAH flag so far is arch/alpha's O_PATH at 0x800000 so
 // plenty of headroom.
-#define WARN_ONLY (1<<31)
+#define WARN_ONLY (1U<<31)
 
 // xwrap.c
 void xstrncpy(char *dest, char *src, size_t size);
