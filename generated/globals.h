@@ -2,6 +2,8 @@
 
 struct log_data {
   char *t, *p;
+
+  int pri;
 };
 
 // toys/example/demo_number.c
@@ -25,7 +27,7 @@ struct skeleton_data {
       long c;
       struct arg_list *d;
       long e;
-      char *also, *blubber;
+      char *f, *g, *h, *also, *blubber;
     } s;
     struct {
       long b;
@@ -72,15 +74,16 @@ struct killall_data {
 
 struct md5sum_data {
   int sawline;
+  unsigned *rconsttable32;
+  unsigned long long *rconsttable64; // for sha384,sha512
 
-  unsigned *md5table;
   // Crypto variables blanked after summing
-  unsigned state[5], oldstate[5];
-  unsigned long long count;
+  unsigned long long count, overflow;
   union {
-    char c[64];
-    unsigned i[16];
-  } buffer;
+    char c[128]; // bytes, 1024 bits
+    unsigned i32[16]; // 512 bits for md5,sha1,sha224,sha256
+    unsigned long long i64[16]; // 1024 bits for sha384,sha512
+  } state, buffer;
 };
 
 // toys/lsb/mknod.c
@@ -98,9 +101,8 @@ struct mktemp_data {
 // toys/lsb/mount.c
 
 struct mount_data {
-  struct arg_list *optlist;
-  char *type;
-  char *bigO;
+  struct arg_list *o;
+  char *t, *O;
 
   unsigned long flags;
   char *opts;
@@ -116,7 +118,7 @@ struct passwd_data {
 // toys/lsb/pidof.c
 
 struct pidof_data {
-  char *omit;
+  char *o;
 };
 
 // toys/lsb/seq.c
@@ -124,7 +126,7 @@ struct pidof_data {
 struct seq_data {
   char *s, *f;
 
-  int precision;
+  int precision, buflen;
 };
 
 // toys/lsb/su.c
@@ -150,6 +152,15 @@ struct ftpget_data {
   int fd;
 };
 
+// toys/net/host.c
+
+struct host_data {
+  char *t;
+
+  char **nsname;
+  unsigned nslen;
+};
+
 // toys/net/ifconfig.c
 
 struct ifconfig_data {
@@ -161,8 +172,8 @@ struct ifconfig_data {
 struct microcom_data {
   long s;
 
-  int fd;
-  struct termios original_stdin_state, original_fd_state;
+  int fd, stok;
+  struct termios old_stdin, old_fd;
 };
 
 // toys/net/netcat.c
@@ -203,6 +214,22 @@ struct tunctl_data {
   char *u;
 };
 
+// toys/net/wget.c
+
+struct wget_data {
+  char *p, *O;
+  long max_redirect;
+
+  int sock, https;
+  char *url;
+#if CFG_WGET_LIBTLS
+  struct tls *tls;
+#elif CFG_TOYBOX_LIBCRYPTO
+  struct ssl_ctx_st *ctx;
+  struct ssl_st *ssl;
+#endif
+};
+
 // toys/other/acpi.c
 
 struct acpi_data {
@@ -216,6 +243,8 @@ struct base64_data {
   long w;
 
   unsigned total;
+  unsigned n;  // number of bits used in encoding. 5 for base32, 6 for base64
+  unsigned align;  // number of bits to align to
 };
 
 // toys/other/blkdiscard.c
@@ -228,6 +257,7 @@ struct blkdiscard_data {
 
 struct blkid_data {
   struct arg_list *s;
+  char *o;
 };
 
 // toys/other/blockdev.c
@@ -257,7 +287,7 @@ struct fallocate_data {
 // toys/other/fmt.c
 
 struct fmt_data {
-  int width;
+  long width;
 
   int level, pos;
 };
@@ -270,19 +300,32 @@ struct free_data {
   char *buf;
 };
 
+// toys/other/gpiod.c
+
+struct gpiod_data {
+  struct double_list *chips;
+  int chip_count;
+};
+
 // toys/other/hexedit.c
 
 struct hexedit_data {
-  char *data;
-  long long len, base;
-  int numlen, undo, undolen;
-  unsigned height;
+  char *data, *search, keybuf[16], input[80];
+  long long len, base, pos;
+  int numlen, undo, undolen, mode;
+  unsigned rows, cols;
 };
 
 // toys/other/hwclock.c
 
 struct hwclock_data {
   char *f;
+};
+
+// toys/other/i2ctools.c
+
+struct i2ctools_data {
+  long F;
 };
 
 // toys/other/ionice.c
@@ -314,21 +357,21 @@ struct losetup_data {
 // toys/other/lsattr.c
 
 struct lsattr_data {
-  long v;
-  long p;
+  long v, p;
 
-  long add, rm, set;
+  unsigned add, rm, set;
   // !add and !rm tell us whether they were used, but `chattr =` is meaningful.
   int have_set;
 };
 
-// toys/other/lspci.c
+// toys/other/lsusb.c
 
-struct lspci_data {
+struct lsusb_data {
   char *i;
-  long n;
+  long x, n;
 
-  FILE *db;
+  void *ids, *class;
+  int count;
 };
 
 // toys/other/makedevs.c
@@ -366,10 +409,18 @@ struct modinfo_data {
   int count;
 };
 
+// toys/other/nbd_client.c
+
+struct nbd_client_data {
+  long b;
+
+  int nbd;
+};
+
 // toys/other/nsenter.c
 
 struct nsenter_data {
-  char *Uupnmi[6];
+  char *UupnmiC[7];
   long t;
 };
 
@@ -377,6 +428,40 @@ struct nsenter_data {
 
 struct oneit_data {
   char *c;
+};
+
+// toys/other/openvt.c
+
+struct openvt_data {
+  long c;
+};
+
+// toys/other/pwgen.c
+
+struct pwgen_data {
+  char *r;
+};
+
+// toys/other/readelf.c
+
+struct readelf_data {
+  char *x, *p;
+
+  char *elf, *shstrtab, *f;
+  unsigned long long shoff, phoff, size, shstrtabsz;
+  int bits, endian, shnum, shentsize, phentsize;
+};
+
+// toys/other/readlink.c
+
+struct readlink_data {
+  char *R, *relative_base;
+};
+
+// toys/other/reboot.c
+
+struct reboot_data {
+  char *d;
 };
 
 // toys/other/rtcwake.c
@@ -405,6 +490,15 @@ struct shred_data {
   long o, n, s;
 };
 
+// toys/other/shuf.c
+
+struct shuf_data {
+  long n;
+
+  char **lines;
+  long count;
+};
+
 // toys/other/stat.c
 
 struct stat_data {
@@ -429,6 +523,7 @@ struct swapon_data {
 struct switch_root_data {
   char *c;
 
+  struct stat new;
   dev_t rootdev;
 };
 
@@ -443,10 +538,9 @@ struct tac_data {
 struct timeout_data {
   char *s, *k;
 
-  int nextsig;
-  pid_t pid;
-  struct timeval ktv;
-  struct itimerval itv;
+  struct pollfd pfd;
+  sigjmp_buf sj;
+  int fds[2], pid;
 };
 
 // toys/other/truncate.c
@@ -456,6 +550,12 @@ struct truncate_data {
 
   long size;
   int type;
+};
+
+// toys/other/uclampset.c
+
+struct uclampset_data {
+  long M, m, p;
 };
 
 // toys/other/watch.c
@@ -487,7 +587,7 @@ struct arp_data {
     char *af_type_A;
     char *af_type_p;
     char *interface;
-    
+
     int sockfd;
     char *device;
 };
@@ -521,7 +621,7 @@ struct bc_data {
 // toys/pending/bootchartd.c
 
 struct bootchartd_data {
-  char buf[32];
+  char timestamp[32];
   long msec;
   int proc_accounting;
 
@@ -532,6 +632,12 @@ struct bootchartd_data {
 
 struct brctl_data {
     int sockfd;
+};
+
+// toys/pending/chsh.c
+
+struct chsh_data {
+  char *s;
 };
 
 // toys/pending/crond.c
@@ -557,14 +663,12 @@ struct crontab_data {
 
 struct dd_data {
   int show_xfer, show_records;
-  unsigned long long bytes, c_count, in_full, in_part, out_full, out_part;
-  struct timeval start;
+  unsigned long long bytes, in_full, in_part, out_full, out_part, start;
+  char *buff;
   struct {
-    char *name;
+    char *name, *bp;
     int fd;
-    unsigned char *buff, *bp;
-    long sz, count;
-    unsigned long long offset;
+    unsigned long long sz, count;
   } in, out;
   unsigned conv, iflag, oflag;
 };
@@ -608,13 +712,20 @@ struct dhcpd_data {
 // toys/pending/diff.c
 
 struct diff_data {
-  long ct;
-  char *start;
-  struct arg_list *L_list;
+  long U;
+  struct arg_list *L;
+  char *F, *S, *new_line_format, *old_line_format, *unchanged_line_format;
 
-  int dir_num, size, is_binary, status, change, len[2];
-  int *offset[2];
+  int dir_num, size, is_binary, differ, change, len[2], *offset[2];
   struct stat st[2];
+  struct {
+    char **list;
+    int nr_elm;
+  } dir[2];
+  struct {
+    FILE *fp;
+    int len;
+  } file[2];
 };
 
 // toys/pending/dumpleases.c
@@ -678,15 +789,19 @@ struct getopt_data {
 // toys/pending/getty.c
 
 struct getty_data {
-  char *issue_str;
-  char *login_str;
-  char *init_str;
-  char *host_str; 
-  long timeout;
-  
+  char *f, *l, *I, *H;
+  long t;
+
   char *tty_name, buff[128];
   int speeds[20], sc;
   struct termios termios;
+};
+
+// toys/pending/git.c
+
+struct git_data {
+  char *url, *name; //git repo remote url and init directory name
+  struct IndexV2 *i; //git creates a index for each pack file, git clone just needs one index for the received pack file
 };
 
 // toys/pending/groupadd.c
@@ -695,10 +810,17 @@ struct groupadd_data {
   long gid;
 };
 
-// toys/pending/host.c
+// toys/pending/hexdump.c
 
-struct host_data {
-  char *type_str;
+struct hexdump_data {
+    long s, n;
+
+    long long len, pos, ppos;
+    const char *fmt;
+    unsigned int fn, bc;  // file number and byte count
+    char linebuf[16];  // line buffer - serves double duty for sqeezing repeat
+                       // lines and for accumulating full lines accross file
+                       // boundaries if necessesary.
 };
 
 // toys/pending/ip.c
@@ -793,11 +915,9 @@ struct mke2fs_data {
 struct modprobe_data {
   struct arg_list *dirs;
 
-  struct arg_list *probes;
-  struct arg_list *dbase[256];
+  struct arg_list *probes, *dbase[256];
   char *cmdopts;
-  int nudeps;
-  uint8_t symreq;
+  int nudeps, symreq;
 };
 
 // toys/pending/more.c
@@ -805,22 +925,6 @@ struct modprobe_data {
 struct more_data {
   struct termios inf;
   int cin_fd;
-};
-
-// toys/pending/openvt.c
-
-struct openvt_data {
-  long c;
-};
-
-// toys/pending/readelf.c
-
-struct readelf_data {
-  char *x, *p;
-
-  char *elf, *shstrtab, *f;
-  unsigned long long shoff, phoff, size;
-  int bits, endian, shnum, shentsize, phentsize;
 };
 
 // toys/pending/route.c
@@ -841,45 +945,79 @@ struct sh_data {
     } exec;
   };
 
-  // keep lineno here: used to work around compiler limitation in run_command()
-  long lineno;
-  char *ifs, *isexec, *wcpat;
-  unsigned options, jobcnt;
-  int hfd, pid, bangpid, varslen, shift, cdcount;
+  // keep SECONDS here: used to work around compiler limitation in run_command()
   long long SECONDS;
+  char *isexec, *wcpat;
+  unsigned options, jobcnt, LINENO;
+  int hfd, pid, bangpid, srclvl, recursion;
 
-  // global and local variables
-  struct sh_vars {
-    long flags;
-    char *str;
-  } *vars;
-
-  // Parsed functions
+  // Callable function array
   struct sh_function {
     char *name;
-    struct sh_pipeline {  // pipeline segments
+    struct sh_pipeline {  // pipeline segments: linked list of arg w/metadata
       struct sh_pipeline *next, *prev, *end;
-      int count, here, type; // TODO abuse type to replace count during parsing
+      int count, here, type, lineno;
       struct sh_arg {
         char **v;
         int c;
       } arg[1];
     } *pipeline;
-    struct double_list *expect; // should be zero at end of parsing
-  } *functions;
+    unsigned long refcount;
+  } **functions;
+  long funcslen;
+
+  // runtime function call stack
+  struct sh_fcall {
+    struct sh_fcall *next, *prev;
+
+    // This dlist in reverse order: TT.ff current function, TT.ff->prev globals
+    struct sh_vars {
+      long flags;
+      char *str;
+    } *vars;
+    long varslen, varscap, shift, oldlineno;
+
+    struct sh_function *func; // TODO wire this up
+    struct sh_pipeline *pl;
+    char *ifs, *omnom;
+    struct sh_arg arg;
+    struct arg_list *delete;
+
+    // Runtime stack of nested if/else/fi and for/do/done contexts.
+    struct sh_blockstack {
+      struct sh_blockstack *next;
+      struct sh_pipeline *start, *middle;
+      struct sh_process *pp;       // list of processes piping in to us
+      int run, loop, *urd, pout, pipe;
+      struct sh_arg farg;          // for/select arg stack, case wildcard deck
+      struct arg_list *fdelete;    // farg's cleanup list
+      char *fvar;                  // for/select's iteration variable name
+    } *blk;
+  } *ff;
 
 // TODO ctrl-Z suspend should stop script
   struct sh_process {
     struct sh_process *next, *prev; // | && ||
     struct arg_list *delete;   // expanded strings
     // undo redirects, a=b at start, child PID, exit status, has !, job #
-    int *urd, envlen, pid, exit, not, job;
+    int *urd, envlen, pid, exit, flags, job, dash;
     long long when; // when job backgrounded/suspended
     struct sh_arg *raw, arg;
   } *pp; // currently running process
 
   // job list, command line for $*, scratch space for do_wildcard_files()
-  struct sh_arg jobs, *arg, *wcdeck;
+  struct sh_arg jobs, *wcdeck;
+};
+
+// toys/pending/strace.c
+
+struct strace_data {
+  long s, p;
+
+  char ioctl[32], *fmt;
+  long regs[256/sizeof(long)], syscall;
+  pid_t pid;
+  int arg;
 };
 
 // toys/pending/stty.c
@@ -919,11 +1057,8 @@ struct syslogd_data {
 // toys/pending/tcpsvd.c
 
 struct tcpsvd_data {
-  char *name;
-  char *user;
-  long bn;
-  char *nmsg;
-  long cn;
+  char *l, *u, *C;
+  long b, c;
 
   int maxc;
   int count_all;
@@ -933,20 +1068,13 @@ struct tcpsvd_data {
 // toys/pending/telnet.c
 
 struct telnet_data {
-  int port;
-  int sfd;
-  char buff[128];
-  int pbuff;
-  char iac[256];
-  int piac;
-  char *ttype;
-  struct termios def_term;
+  int sock;
+  char buf[2048]; // Half sizeof(toybuf) allows a buffer full of IACs.
+  struct termios old_term;
   struct termios raw_term;
-  uint8_t term_ok;
-  uint8_t term_mode;
-  uint8_t flags;
-  unsigned win_width;
-  unsigned win_height;
+  uint8_t mode;
+  int echo, sga;
+  int state, request;
 };
 
 // toys/pending/telnetd.c
@@ -1028,6 +1156,8 @@ struct useradd_data {
 
 struct vi_data {
   char *s;
+
+  char *filename;
   int vi_mode, tabstop, list;
   int cur_col, cur_row, scr_row;
   int drawn_row, drawn_col;
@@ -1047,13 +1177,9 @@ struct vi_data {
     char* data;
   } yank;
 
-  int modified;
   size_t filesize;
 // mem_block contains RO data that is either original file as mmap
 // or heap allocated inserted data
-//
-//
-//
   struct block_list {
     struct block_list *next, *prev;
     struct mem_block {
@@ -1082,12 +1208,6 @@ struct vi_data {
       const char *data;
     } *node;
   } *slices;
-};
-
-// toys/pending/wget.c
-
-struct wget_data {
-  char *filename;
 };
 
 // toys/posix/basename.c
@@ -1126,6 +1246,8 @@ struct cksum_data {
 // toys/posix/cmp.c
 
 struct cmp_data {
+  long n;
+
   int fd;
   char *name;
 };
@@ -1136,11 +1258,11 @@ struct cp_data {
   union {
     // install's options
     struct {
-      char *g, *o, *m;
+      char *g, *o, *m, *t;
     } i;
     // cp's options
     struct {
-      char *preserve;
+      char *t, *preserve;
     } c;
   };
 
@@ -1155,7 +1277,7 @@ struct cp_data {
 // toys/posix/cpio.c
 
 struct cpio_data {
-  char *F, *H;
+  char *F, *H, *R;
 };
 
 // toys/posix/cut.c
@@ -1164,6 +1286,7 @@ struct cut_data {
   char *d, *O;
   struct arg_list *select[5]; // we treat them the same, so loop through
 
+  unsigned line;
   int pairs;
   regex_t reg;
 };
@@ -1171,7 +1294,7 @@ struct cut_data {
 // toys/posix/date.c
 
 struct date_data {
-  char *r, *D, *d;
+  char *s, *r, *I, *D, *d;
 
   unsigned nano;
 };
@@ -1181,9 +1304,7 @@ struct date_data {
 struct df_data {
   struct arg_list *t;
 
-  long units;
-  int column_widths[5];
-  int header_shown;
+  int units, width[6];
 };
 
 // toys/posix/du.c
@@ -1214,7 +1335,6 @@ struct expand_data {
 
 struct file_data {
   int max_name_len;
-
   off_t len;
 };
 
@@ -1238,8 +1358,8 @@ struct grep_data {
 
   char *purple, *cyan, *red, *green, *grey;
   struct double_list *reg;
-  char indelim, outdelim;
-  int found, tried;
+  int found, tried, delim;
+  struct arg_list *fixed[256];
 };
 
 // toys/posix/head.c
@@ -1281,14 +1401,15 @@ struct ln_data {
 
 struct logger_data {
   char *p, *t;
+
+  int priority;
 };
 
 // toys/posix/ls.c
 
 struct ls_data {
-  long w;
-  long l;
-  char *color;
+  long w, l, block_size;
+  char *color, *sort;
 
   struct dirtree *files, *singledir;
   unsigned screen_width;
@@ -1324,8 +1445,7 @@ struct nl_data {
   long w, l, v;
 
   // Count of consecutive blank lines for -l has to persist between files
-  long lcount;
-  long slen;
+  long lcount, slen;
 };
 
 // toys/posix/od.c
@@ -1354,7 +1474,7 @@ struct paste_data {
 
 struct patch_data {
   char *i, *d;
-  long p, g, F;
+  long v, p, g, F;
 
   void *current_hunk;
   long oldline, oldlen, newline, newlen, linenum, outnum;
@@ -1384,9 +1504,12 @@ struct ps_data {
     } pgrep;
   };
 
-  struct ptr_len gg, GG, pp, PP, ss, tt, uu, UU;
+  struct ps_ptr_len {
+    void *ptr;
+    long len;
+  } gg, GG, pp, PP, ss, tt, uu, UU;
   struct dirtree *threadparent;
-  unsigned width, height;
+  unsigned width, height, scroll;
   dev_t tty;
   void *fields, *kfields;
   long long ticks, bits, time;
@@ -1410,12 +1533,12 @@ struct sed_data {
   // processed pattern list
   struct double_list *pattern;
 
-  char *nextline, *remember;
+  char *nextline, *remember, *tarxform;
   void *restart, *lastregex;
   long nextlen, rememberlen, count;
   int fdout, noeol;
-  unsigned xx;
-  char delim;
+  unsigned xx, tarxlen, xflags;
+  char delim, xftype;
 };
 
 // toys/posix/sort.c
@@ -1426,14 +1549,14 @@ struct sort_data {
   char *o, *T, S;
 
   void *key_list;
-  int linecount;
+  unsigned linecount;
   char **lines, *name;
 };
 
 // toys/posix/split.c
 
 struct split_data {
-  long l, b, a;
+  long n, l, b, a;
 
   char *outfile;
 };
@@ -1449,31 +1572,38 @@ struct strings_data {
 
 struct tail_data {
   long n, c;
+  char *s;
 
-  int file_no, last_fd;
+  int file_no, last_fd, ss;
   struct xnotify *not;
+  struct {
+    char *path;
+    int fd;
+    struct dev_ino di;
+  } *F;
 };
 
 // toys/posix/tar.c
 
 struct tar_data {
-  char *f, *C;
-  struct arg_list *T, *X;
-  char *I, *to_command, *owner, *group, *mtime, *mode;
+  char *f, *C, *I;
+  struct arg_list *T, *X, *xform;
+  long strip;
+  char *to_command, *owner, *group, *mtime, *mode, *sort;
   struct arg_list *exclude;
 
   struct double_list *incl, *excl, *seen;
   struct string_list *dirs;
-  char *cwd;
-  int fd, ouid, ggid, hlc, warn, adev, aino, sparselen;
+  char *cwd, **xfsed;
+  int fd, ouid, ggid, hlc, warn, sparselen, pid, xfpipe[2];
+  struct dev_ino archive_di;
   long long *sparse;
   time_t mtt;
 
   // hardlinks seen so far (hlc many)
   struct {
     char *arg;
-    ino_t ino;
-    dev_t dev;
+    struct dev_ino di;
   } *hlx;
 
   // Parsed information about a tar header.
@@ -1492,6 +1622,7 @@ struct tar_data {
 
 struct tee_data {
   void *outputs;
+  int out;
 };
 
 // toys/posix/touch.c
@@ -1556,6 +1687,7 @@ extern union global_union {
 	struct su_data su;
 	struct umount_data umount;
 	struct ftpget_data ftpget;
+	struct host_data host;
 	struct ifconfig_data ifconfig;
 	struct microcom_data microcom;
 	struct netcat_data netcat;
@@ -1563,6 +1695,7 @@ extern union global_union {
 	struct ping_data ping;
 	struct sntp_data sntp;
 	struct tunctl_data tunctl;
+	struct wget_data wget;
 	struct acpi_data acpi;
 	struct base64_data base64;
 	struct blkdiscard_data blkdiscard;
@@ -1573,30 +1706,40 @@ extern union global_union {
 	struct fallocate_data fallocate;
 	struct fmt_data fmt;
 	struct free_data free;
+	struct gpiod_data gpiod;
 	struct hexedit_data hexedit;
 	struct hwclock_data hwclock;
+	struct i2ctools_data i2ctools;
 	struct ionice_data ionice;
 	struct login_data login;
 	struct losetup_data losetup;
 	struct lsattr_data lsattr;
-	struct lspci_data lspci;
+	struct lsusb_data lsusb;
 	struct makedevs_data makedevs;
 	struct mix_data mix;
 	struct mkpasswd_data mkpasswd;
 	struct mkswap_data mkswap;
 	struct modinfo_data modinfo;
+	struct nbd_client_data nbd_client;
 	struct nsenter_data nsenter;
 	struct oneit_data oneit;
+	struct openvt_data openvt;
+	struct pwgen_data pwgen;
+	struct readelf_data readelf;
+	struct readlink_data readlink;
+	struct reboot_data reboot;
 	struct rtcwake_data rtcwake;
 	struct setfattr_data setfattr;
 	struct sha3sum_data sha3sum;
 	struct shred_data shred;
+	struct shuf_data shuf;
 	struct stat_data stat;
 	struct swapon_data swapon;
 	struct switch_root_data switch_root;
 	struct tac_data tac;
 	struct timeout_data timeout;
 	struct truncate_data truncate;
+	struct uclampset_data uclampset;
 	struct watch_data watch;
 	struct watchdog_data watchdog;
 	struct xxd_data xxd;
@@ -1605,6 +1748,7 @@ extern union global_union {
 	struct bc_data bc;
 	struct bootchartd_data bootchartd;
 	struct brctl_data brctl;
+	struct chsh_data chsh;
 	struct crond_data crond;
 	struct crontab_data crontab;
 	struct dd_data dd;
@@ -1620,8 +1764,9 @@ extern union global_union {
 	struct getfattr_data getfattr;
 	struct getopt_data getopt;
 	struct getty_data getty;
+	struct git_data git;
 	struct groupadd_data groupadd;
-	struct host_data host;
+	struct hexdump_data hexdump;
 	struct ip_data ip;
 	struct ipcrm_data ipcrm;
 	struct ipcs_data ipcs;
@@ -1632,10 +1777,9 @@ extern union global_union {
 	struct mke2fs_data mke2fs;
 	struct modprobe_data modprobe;
 	struct more_data more;
-	struct openvt_data openvt;
-	struct readelf_data readelf;
 	struct route_data route;
 	struct sh_data sh;
+	struct strace_data strace;
 	struct stty_data stty;
 	struct sulogin_data sulogin;
 	struct syslogd_data syslogd;
@@ -1648,7 +1792,6 @@ extern union global_union {
 	struct traceroute_data traceroute;
 	struct useradd_data useradd;
 	struct vi_data vi;
-	struct wget_data wget;
 	struct basename_data basename;
 	struct cal_data cal;
 	struct chgrp_data chgrp;

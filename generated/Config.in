@@ -17,12 +17,13 @@ config CAL
   bool "cal"
   default y
   help
-    usage: cal [[MONTH] YEAR]
+    usage: cal [[[DAY] MONTH] YEAR]
 
     Print a calendar.
 
     With one argument, prints all months of the specified year.
     With two arguments, prints calendar for month and year.
+    With three arguments, highlights day within month and year.
 
     -h	Don't highlight today
 
@@ -31,37 +32,16 @@ config CAT
   bool "cat"
   default y
   help
-    usage: cat [-u] [FILE...]
+    usage: cat [-etuv] [FILE...]
 
     Copy (concatenate) files to stdout.  If no files listed, copy from stdin.
     Filename "-" is a synonym for stdin.
 
-    -u	Copy one byte at a time (slow)
-
-config CAT_V
-  bool "cat -etv"
-  default n
-  depends on CAT
-  help
-    usage: cat [-evt]
-
     -e	Mark each newline with $
     -t	Show tabs as ^I
+    -u	Copy one byte at a time (slow)
     -v	Display nonprinting characters as escape sequences with M-x for
     	high ascii characters (>127), and ^x for other nonprinting chars
-
-config CATV
-  bool "catv"
-  default y
-  help
-    usage: catv [-evt] [FILE...]
-
-    Display nonprinting characters as escape sequences. Use M-x for
-    high ascii characters (>127), and ^x for other nonprinting chars.
-
-    -e	Mark each newline with $
-    -t	Show tabs as ^I
-    -v	Don't use ^x or M-x escapes
 
 # toys/posix/chgrp.c
 config CHGRP
@@ -100,7 +80,7 @@ config CHMOD
     Stanzas are applied in order: For each category (u = user,
     g = group, o = other, a = all three, if none specified default is a),
     set (+), clear (-), or copy (=), r = read, w = write, x = execute.
-    s = u+s = suid, g+s = sgid, o+s = sticky. (+t is an alias for o+s).
+    s = u+s = suid, g+s = sgid, +t = sticky. (o+s ignored so a+s doesn't set +t)
     suid/sgid: execute as the user/group who owns the file.
     sticky: can't delete files you don't own out of this directory
     X = x for directories or if any category already has x set.
@@ -141,11 +121,13 @@ config CMP
   bool "cmp"
   default y
   help
-    usage: cmp [-l] [-s] FILE1 [FILE2 [SKIP1 [SKIP2]]]
+    usage: cmp [-ls] [-n LEN] FILE1 [FILE2 [SKIP1 [SKIP2]]]
 
-    Compare the contents of two files. (Or stdin and file if only one given.)
+    Compare the contents of files (vs stdin if only one given), optionally
+    skipping bytes at start.
 
     -l	Show all differing bytes
+    -n LEN	Compare at most LEN bytes
     -s	Silent
 
 # toys/posix/comm.c
@@ -168,7 +150,7 @@ config CP
   bool "cp"
   default y
   help
-    usage: cp [-adfHiLlnPpRrsTv] [--preserve=motcxa] SOURCE... DEST
+    usage: cp [-adfHiLlnPpRrsTv] [--preserve=motcxa] [-t TARGET] SOURCE... [DEST]
 
     Copy files from SOURCE to DEST.  If more than one SOURCE, DEST must
     be a directory.
@@ -183,11 +165,13 @@ config CP
     -L	Follow all symlinks
     -l	Hard link instead of copy
     -n	No clobber (don't overwrite DEST)
+    -u	Update (keep newest mtime)
     -P	Do not follow symlinks
     -p	Preserve timestamps, ownership, and mode
     -R	Recurse into subdirectories (DEST must be a directory)
     -r	Synonym for -R
     -s	Symlink instead of copy
+    -t	Copy to TARGET dir (no DEST)
     -T	DEST always treated as file, max 2 arguments
     -v	Verbose
 
@@ -204,11 +188,12 @@ config MV
   bool "mv"
   default y
   help
-    usage: mv [-finTv] SOURCE... DEST
+    usage: mv [-finTv] [-t TARGET] SOURCE... [DEST]
 
     -f	Force copy by deleting destination file
     -i	Interactive, prompt before overwriting existing DEST
     -n	No clobber (don't overwrite DEST)
+    -t	Move to TARGET dir (no DEST)
     -T	DEST always treated as file, max 2 arguments
     -v	Verbose
 
@@ -216,7 +201,7 @@ config INSTALL
   bool "install"
   default y
   help
-    usage: install [-dDpsv] [-o USER] [-g GROUP] [-m MODE] [SOURCE...] DEST
+    usage: install [-dDpsv] [-o USER] [-g GROUP] [-m MODE] [-t TARGET] [SOURCE...] [DEST]
 
     Copy files and set attributes.
 
@@ -227,6 +212,7 @@ config INSTALL
     -o	Make copy belong to USER
     -p	Preserve timestamps
     -s	Call "strip -p"
+    -t	Copy files to TARGET dir (no DEST)
     -v	Verbose
 
 # toys/posix/cpio.c
@@ -234,26 +220,28 @@ config CPIO
   bool "cpio"
   default y
   help
-    usage: cpio -{o|t|i|p DEST} [-v] [--verbose] [-F FILE] [--no-preserve-owner]
-           [ignored: -mdu -H newc]
+    usage: cpio -{o|t|i|p DEST} [-v] [--verbose] [-F FILE] [-R [USER][:GROUP] [--no-preserve-owner]
 
     Copy files into and out of a "newc" format cpio archive.
 
-    -F FILE	Use archive FILE instead of stdin/stdout
-    -p DEST	Copy-pass mode, copy stdin file list to directory DEST
-    -i	Extract from archive into file system (stdin=archive)
-    -o	Create archive (stdin=list of files, stdout=archive)
-    -t	Test files (list only, stdin=archive, stdout=list of files)
     -d	Create directories if needed
+    -F FILE	Use archive FILE instead of stdin/stdout
+    -i	Extract from archive into file system (stdin=archive)
+    -L	Follow symlinks
+    -o	Create archive (stdin=list of files, stdout=archive)
+    -p DEST	Copy-pass mode, copy stdin file list to directory DEST
+    -R USER	Replace owner with USER[:GROUP]
+    -t	Test files (list only, stdin=archive, stdout=list of files)
+    -u	Unlink existing files when extracting
     -v	Verbose
-    --no-preserve-owner (don't set ownership during extract)
+    --no-preserve-owner     Don't set ownership during extract
 
 # toys/posix/cut.c
 config CUT
   bool "cut"
   default y
   help
-    usage: cut [-Ds] [-bcfF LIST] [-dO DELIM] [FILE...]
+    usage: cut [-Ds] [-bcCfF LIST] [-dO DELIM] [FILE...]
 
     Print selected parts of lines from each FILE to standard output.
 
@@ -262,7 +250,7 @@ config CUT
     from start). By default selection ranges are sorted and collated, use -D
     to prevent that.
 
-    -b	Select bytes
+    -b	Select bytes (with -n round start/end down to start of utf8 char)
     -c	Select UTF-8 characters
     -C	Select unicode columns
     -d	Use DELIM (default is TAB for -f, run of whitespace for -F)
@@ -277,13 +265,15 @@ config DATE
   bool "date"
   default y
   help
-    usage: date [-u] [-r FILE] [-d DATE] [+DISPLAY_FORMAT] [-D SET_FORMAT] [SET]
+    usage: date [-u] [-I RES] [-r FILE] [-d DATE] [+DISPLAY_FORMAT] [-D SET_FORMAT] [SET]
 
     Set/get the current date/time. With no SET shows the current date.
 
     -d	Show DATE instead of current time (convert date format)
     -D	+FORMAT for SET or -d (instead of MMDDhhmm[[CC]YY][.ss])
+    -I RES	ISO 8601 with RESolution d=date/h=hours/m=minutes/s=seconds/n=ns
     -r	Use modification time of FILE instead of current date
+    -s DATE	Set the system clock to DATE.
     -u	Use UTC instead of current timezone
 
     Supported input formats:
@@ -313,9 +303,9 @@ config DATE
     %U Week of year (0-53 start Sunday)   %W Week of year (0-53 start Monday)
     %V Week of year (1-53 start Monday, week < 4 days not part of this year)
 
-    %F "%Y-%m-%d"     %R "%H:%M"        %T "%H:%M:%S"    %z numeric timezone
-    %D "%m/%d/%y"     %r "%I:%M:%S %p"  %h "%b"          %s unix epoch time
-    %x locale date    %X locale time    %c locale date/time
+    %F "%Y-%m-%d"   %R "%H:%M"        %T "%H:%M:%S"        %z  timezone (-0800)
+    %D "%m/%d/%y"   %r "%I:%M:%S %p"  %h "%b"              %:z timezone (-08:00)
+    %x locale date  %X locale time    %c locale date/time  %s  unix epoch time
 
 # toys/posix/df.c
 config DF
@@ -336,7 +326,7 @@ config DF
     -i	Show inodes instead of blocks
     -t type	Display only filesystems of this type
 
-    Pedantic provides a slightly less useful output format dictated by Posix,
+    Pedantic provides a slightly less useful output format dictated by POSIX,
     and sets the units to 512 bytes instead of the default 1024 bytes.
 
 # toys/posix/dirname.c
@@ -381,23 +371,15 @@ config ECHO
   help
     usage: echo [-neE] [ARG...]
 
-    Write each argument to stdout, with one space between each, followed
-    by a newline.
+    Write each argument to stdout, one space between each, followed by a newline.
 
     -n	No trailing newline
     -E	Print escape sequences literally (default)
     -e	Process the following escape sequences:
-    	\\	Backslash
-    	\0NNN	Octal values (1 to 3 digits)
-    	\a	Alert (beep/flash)
-    	\b	Backspace
-    	\c	Stop output here (avoids trailing newline)
-    	\f	Form feed
-    	\n	Newline
-    	\r	Carriage return
-    	\t	Horizontal tab
-    	\v	Vertical tab
-    	\xHH	Hexadecimal values (1 to 2 digits)
+    	\\  Backslash		\0NNN Octal (1-3 digit)	\xHH Hex (1-2 digit)
+    	\a  Alert (beep/flash)	\b  Backspace		\c  Stop here (no \n)
+    	\f  Form feed		\n  Newline		\r  Carriage return
+    	\t  Horizontal tab	\v  Vertical tab
 
 # toys/posix/env.c
 config ENV
@@ -464,24 +446,25 @@ config FIND
     -H  Follow command line symlinks         -L  Follow all symlinks
 
     Match filters:
-    -name  PATTERN   filename with wildcards  (-iname case insensitive)
-    -path  PATTERN   path name with wildcards (-ipath case insensitive)
+    -name  PATTERN   filename with wildcards   -iname      ignore case -name
+    -path  PATTERN   path name with wildcards  -ipath      ignore case -path
     -user  UNAME     belongs to user UNAME     -nouser     user ID not known
     -group GROUP     belongs to group GROUP    -nogroup    group ID not known
     -perm  [-/]MODE  permissions (-=min /=any) -prune      ignore dir contents
     -size  N[c]      512 byte blocks (c=bytes) -xdev       only this filesystem
-    -links N         hardlink count            -atime N[u] accessed N units ago
-    -ctime N[u]      created N units ago       -mtime N[u] modified N units ago
-    -newer FILE      newer mtime than FILE     -mindepth N at least N dirs down
-    -depth           ignore contents of dir    -maxdepth N at most N dirs down
-    -inum N          inode number N            -empty      empty files and dirs
+    -links N         hardlink count            -empty      empty files and dirs
+    -atime N[u]      accessed N units ago      -true       always true
+    -ctime N[u]      created N units ago       -false      always false
+    -mtime N[u]      modified N units ago      -executable access(X_OK) perm+ACL
+    -inum  N         inode number N            -readable   access(R_OK) perm+ACL
+    -context PATTERN security context          -depth      contents before dir
+    -samefile FILE   hardlink to FILE          -maxdepth N at most N dirs down
+    -newer    FILE   newer mtime than FILE     -mindepth N at least N dirs down
+    -newerXY  FILE   X=acm time > FILE's Y=acm time (Y=t: FILE is literal time)
     -type [bcdflps]  type is (block, char, dir, file, symlink, pipe, socket)
-    -true            always true               -false      always false
-    -context PATTERN security context
-    -newerXY FILE    X=acm time > FILE's Y=acm time (Y=t: FILE is literal time)
 
-    Numbers N may be prefixed by a - (less than) or + (greater than). Units for
-    -Xtime are d (days, default), h (hours), m (minutes), or s (seconds).
+    Numbers N may be prefixed by - (less than) or + (greater than). Units for
+    -[acm]time are d (days, default), h (hours), m (minutes), or s (seconds).
 
     Combine matches with:
     !, -a, -o, ( )    not, and, or, group expressions
@@ -491,6 +474,7 @@ config FIND
     -exec   Run command with path     -execdir       Run command in file's dir
     -ok     Ask before exec           -okdir         Ask before execdir
     -delete Remove matching file/dir  -printf FORMAT Print using format string
+    -quit   Exit immediately
 
     Commands substitute "{}" with matched file. End with ";" to run each file,
     or "+" (next argument after "{}") to collect and run with multiple files.
@@ -546,9 +530,10 @@ config GREP
     -x  whole line               -z  input NUL terminated
 
     display modes: (default: matched line)
-    -c  count of matching lines  -l  show only matching filenames
+    -L  filenames with no match  -Z  output is NUL terminated
+    -c  count of matching lines  -l  filenames with a match
     -o  only matching part       -q  quiet (errors only)
-    -s  silent (no error msg)    -Z  output NUL terminated
+    -s  silent (no error msg)
 
     output prefix (default: filename if checking more than 1 file)
     -H  force filename           -b  byte offset of match
@@ -583,7 +568,6 @@ config HEAD
 config ICONV
   bool "iconv"
   default y
-  depends on TOYBOX_ICONV
   help
     usage: iconv [-f FROM] [-t TO] [FILE...]
 
@@ -711,33 +695,38 @@ config LS
   bool "ls"
   default y
   help
-    usage: ls [-ACFHLRSZacdfhiklmnpqrstuwx1] [--color[=auto]] [FILE...]
+    usage: ls [-1ACFHLNRSUXZabcdfghilmnopqrstuwx] [--color[=auto]] [FILE...]
 
-    List files.
+    List files
 
     what to show:
-    -a  all files including .hidden    -b  escape nongraphic chars
-    -c  use ctime for timestamps       -d  directory, not contents
-    -i  inode number                   -p  put a '/' after dir names
-    -q  unprintable chars as '?'       -s  storage used (1024 byte units)
-    -u  use access time for timestamps -A  list all files but . and ..
-    -H  follow command line symlinks   -L  follow symlinks
-    -R  recursively list in subdirs    -F  append /dir *exe @sym |FIFO
+    -A  all files except . and ..      -a  all files including .hidden
+    -b  escape nongraphic chars        -d  directory, not contents
+    -F  append /dir *exe @sym |FIFO    -f  files (no sort/filter/format)
+    -H  follow command line symlinks   -i  inode number
+    -L  follow symlinks                -N  no escaping, even on tty
+    -p  put '/' after dir names        -q  unprintable chars as '?'
+    -R  recursively list in subdirs    -s  storage used (in --block-size)
     -Z  security context
 
     output formats:
     -1  list one file per line         -C  columns (sorted vertically)
     -g  like -l but no owner           -h  human readable sizes
-    -l  long (show full details)       -m  comma separated
-    -n  like -l but numeric uid/gid    -o  like -l but no group
+    -l  long (show full details)       -ll long with nanoseconds (--full-time)
+    -m  comma separated                -n  long with numeric uid/gid
+    -o  long without group column      -r  reverse order
     -w  set column width               -x  columns (horizontal sort)
-    -ll long with nanoseconds (--full-time)
-    --color  device=yellow  symlink=turquoise/red  dir=blue  socket=purple
-             files: exe=green  suid=red  suidfile=redback  stickydir=greenback
-             =auto means detect if output is a tty.
 
-    sorting (default is alphabetical):
-    -f  unsorted    -r  reverse    -t  timestamp    -S  size
+    sort by:  (also --sort=longname,longname... ends with alphabetical)
+    -c  ctime      -r  reverse    -S  size     -t  time    -u  atime    -U  none
+    -X  extension  -!  dirfirst   -~  nocase
+
+    --block-size N	block size (default 1024)
+    --color  =always (default)  =auto (when stdout is tty) =never
+        exe=green  suid=red  suidfile=redback  stickydir=greenback
+        device=yellow  symlink=turquoise/red  dir=blue  socket=purple
+
+    Long output uses -cu for display, use -ltc/-ltu to also sort by ctime/atime.
 
 # toys/posix/mkdir.c
 config MKDIR
@@ -856,7 +845,7 @@ config PATCH
   bool "patch"
   default y
   help
-    usage: patch [-d DIR] [-i PATCH] [-p DEPTH] [-F FUZZ] [-Rlsu] [--dry-run] [FILE [PATCH]]
+    usage: patch [-Rlsu] [-d DIR] [-i PATCH] [-p DEPTH] [-F FUZZ] [--dry-run] [FILE [PATCH]]
 
     Apply a unified diff to one or more files.
 
@@ -867,6 +856,7 @@ config PATCH
     -R	Reverse patch
     -s	Silent except for errors
     -u	Ignored (only handles "unified" diffs)
+    -v	Verbose (-vv to see decisions)
     --dry-run Don't change files, just confirm patch applies
 
     This version of patch only handles unified diffs, and only modifies
@@ -922,11 +912,12 @@ config TOP
   bool "top"
   default y
   help
-    usage: top [-Hbq] [-k FIELD,] [-o FIELD,] [-s SORT] [-n NUMBER] [-m LINES] [-d SECONDS] [-p PID,] [-u USER,]
+    usage: top [-Hhbq] [-k FIELD,] [-o FIELD,] [-s SORT] [-n NUMBER] [-m LINES] [-d SECONDS] [-p PID,] [-u USER,]
 
     Show process activity in real time.
 
     -H	Show threads
+    -h	Usage graphs instead of text
     -k	Fallback sort FIELDS (default -S,-%CPU,-ETIME,-PID)
     -o	Show FIELDS (def PID,USER,PR,NI,VIRT,RES,SHR,S,%CPU,%MEM,TIME+,CMDLINE)
     -O	Add FIELDS (replacing PR,NI,VIRT,RES,SHR,S from default)
@@ -939,8 +930,8 @@ config TOP
     -u	Show these USERs
     -q	Quiet (no header lines)
 
-    Cursor LEFT/RIGHT to change sort, UP/DOWN move list, space to force
-    update, R to reverse sort, Q to exit.
+    Cursor UP/DOWN or LEFT/RIGHT to move list, SHIFT LEFT/RIGHT to change sort,
+    space to force update, R to reverse sort, Q to exit.
 
 # Requires CONFIG_IRQ_TIME_ACCOUNTING in the kernel for /proc/$$/io
 config IOTOP
@@ -1081,8 +1072,8 @@ config SED
     -z	Use \0 rather than \n as input line separator
 
     A SCRIPT is one or more COMMANDs separated by newlines or semicolons.
-    All -e SCRIPTs are combined as if separated by newlines, followed by all -f
-    SCRIPT_FILEs. If no -e or -f then first argument is the SCRIPT.
+    All -e SCRIPTs and -f SCRIPT_FILE contents are combined in order as if
+    separated by newlines. If no -e or -f then first argument is the SCRIPT.
 
     COMMANDs apply to every line unless prefixed with an ADDRESS of the form:
 
@@ -1118,8 +1109,8 @@ config SED
       G  Get remembered line (appending to current line)
       h  Remember this line (overwriting remembered line)
       H  Remember this line (appending to remembered line, if any)
-      l  Print line escaping \abfrtv (but not \n), octal escape other nonprintng
-         chars, wrap lines to terminal width with \, append $ to end of line.
+      l  Print line escaping \abfrtvn, octal escape other nonprintng chars,
+         wrap lines to terminal width with \, append $ to end of line.
       n  Print default output and read next line over current line (quit at EOF)
       N  Append \n and next line of input to this line. Quit at EOF without
          default output. Advances line counter for ADDRESS and "=".
@@ -1164,7 +1155,7 @@ config SLEEP
   bool "sleep"
   default y
   help
-    usage: sleep DURATION
+    usage: sleep DURATION...
 
     Wait before exiting.
 
@@ -1184,7 +1175,8 @@ config SORT
     -u	Unique lines only
     -n	Numeric order (instead of alphabetical)
     -b	Ignore leading blanks (or trailing blanks in second part of key)
-    -c	Check whether input is sorted
+    -C	Check whether input is sorted
+    -c	Warn if input is unsorted
     -d	Dictionary order (use alphanumeric and whitespace chars only)
     -f	Force uppercase (case insensitive sort)
     -i	Ignore nonprinting characters
@@ -1219,7 +1211,7 @@ config SPLIT
   bool "split"
   default y
   help
-    usage: split [-a SUFFIX_LEN] [-b BYTES] [-l LINES] [INPUT [OUTPUT]]
+    usage: split [-a SUFFIX_LEN] [-b BYTES] [-l LINES] [-n PARTS] [INPUT [OUTPUT]]
 
     Copy INPUT (or stdin) data to a series of OUTPUT (or "x") files with
     alphabetically increasing suffix (aa, ab, ac... az, ba, bb...).
@@ -1227,6 +1219,7 @@ config SPLIT
     -a	Suffix length (default 2)
     -b	BYTES/file (10, 10k, 10m, 10g...)
     -l	LINES/file (default 1000)
+    -n	PARTS many equal length files
 
 # toys/posix/strings.c
 config STRINGS
@@ -1247,39 +1240,51 @@ config TAIL
   bool "tail"
   default y
   help
-    usage: tail [-n|c NUMBER] [-f] [FILE...]
+    usage: tail [-n|c NUMBER] [-f|F] [-s SECONDS] [FILE...]
 
     Copy last lines from files to stdout. If no files listed, copy from
     stdin. Filename "-" is a synonym for stdin.
 
     -n	Output the last NUMBER lines (default 10), +X counts from start
     -c	Output the last NUMBER bytes, +NUMBER counts from start
-    -f	Follow FILE(s), waiting for more data to be appended
+    -f	Follow FILE(s) by descriptor, waiting for more data to be appended
+    -F	Follow FILE(s) by filename, waiting for more data, and retrying
+    -s	Used with -F, sleep SECONDS between retries (default 1)
 
 # toys/posix/tar.c
 config TAR
   bool "tar"
   default y
   help
-    usage: tar [-cxt] [-fvohmjkOS] [-XTCf NAME] [FILE...]
+    usage: tar [-cxt] [-fvohmjkOS] [-XTCf NAME] [--selinux] [FILE...]
 
     Create, extract, or list files in a .tar (or compressed t?z) file.
 
     Options:
     c  Create                x  Extract               t  Test (list)
     f  tar FILE (default -)  C  Change to DIR first   v  Verbose display
-    o  Ignore owner          h  Follow symlinks       m  Ignore mtime
     J  xz compression        j  bzip2 compression     z  gzip compression
+    o  Ignore owner          h  Follow symlinks       m  Ignore mtime
     O  Extract to stdout     X  exclude names in FILE T  include names in FILE
+    s  Sort dirs (--sort)
 
-    --exclude        FILENAME to exclude    --full-time   Show seconds with -tv
-    --mode MODE      Adjust modes           --mtime TIME  Override timestamps
-    --owner NAME     Set file owner to NAME --group NAME  Set file group to NAME
-    --sparse         Record sparse files
-    --restrict       All archive contents must extract under one subdirectory
-    --numeric-owner  Save/use/display uid and gid, not user/group name
-    --no-recursion   Don't store directory contents
+    --exclude        FILENAME to exclude  --full-time         Show seconds with -tv
+    --mode MODE      Adjust permissions   --owner NAME[:UID]  Set file ownership
+    --mtime TIME     Override timestamps  --group NAME[:GID]  Set file group
+    --sparse         Record sparse files  --selinux           Save/restore labels
+    --restrict       All under one dir    --no-recursion      Skip dir contents
+    --numeric-owner  Use numeric uid/gid, not user/group names
+    --null           Filenames in -T FILE are null-separated, not newline
+    --strip-components NUM  Ignore first NUM directory components when extracting
+    --xform=SED      Modify filenames via SED expression (ala s/find/replace/g)
     -I PROG          Filter through PROG to compress or PROG -d to decompress
+
+    Filename filter types. Create command line args aren't filtered, extract
+    defaults to --anchored, --exclude defaults to --wildcards-match-slash,
+    use no- prefix to disable:
+
+    --anchored  Match name not path       --ignore-case       Case insensitive
+    --wildcards Expand *?[] like shell    --wildcards-match-slash
 
 # toys/posix/tee.c
 config TEE
@@ -1301,22 +1306,25 @@ config TEST
   help
     usage: test [-bcdefghLPrSsuwx PATH] [-nz STRING] [-t FD] [X ?? Y]
 
-    Return true or false by performing tests. (With no arguments return false.)
+    Return true or false by performing tests. No arguments is false, one argument
+    is true if not empty string.
 
     --- Tests with a single argument (after the option):
     PATH is/has:
       -b  block device   -f  regular file   -p  fifo           -u  setuid bit
-      -c  char device    -g  setgid         -r  read bit       -w  write bit
-      -d  directory      -h  symlink        -S  socket         -x  execute bit
-      -e  exists         -L  symlink        -s  nonzero size
+      -c  char device    -g  setgid         -r  readable       -w  writable
+      -d  directory      -h  symlink        -S  socket         -x  executable
+      -e  exists         -L  symlink        -s  nonzero size   -k  sticky bit
     STRING is:
-      -n  nonzero size   -z  zero size      (STRING by itself implies -n)
+      -n  nonzero size   -z  zero size
     FD (integer file descriptor) is:
       -t  a TTY
 
     --- Tests with one argument on each side of an operator:
     Two strings:
-      =  are identical   !=  differ
+      =  are identical   !=  differ         =~  string matches regex
+    Alphabetical sort:
+      <  first is lower  >   first higher
     Two integers:
       -eq  equal         -gt  first > second    -lt  first < second
       -ne  not equal     -ge  first >= second   -le  first <= second
@@ -1325,11 +1333,15 @@ config TEST
       ! EXPR     not (swap true/false)   EXPR -a EXPR    and (are both true)
       ( EXPR )   evaluate this first     EXPR -o EXPR    or (is either true)
 
+config TEST_GLUE
+  bool
+  default y
+  depends on TEST || SH
+
 # toys/posix/time.c
 config TIME
   bool "time"
   default y
-  depends on TOYBOX_FLOAT
   help
     usage: time [-pv] COMMAND...
 
@@ -1337,7 +1349,7 @@ config TIME
     (real = clock on the wall, user = cpu used by command's code,
     system = cpu used by OS on behalf of command.)
 
-    -p	POSIX format output (default)
+    -p	POSIX format output
     -v	Verbose
 
 # toys/posix/touch.c
@@ -1373,10 +1385,8 @@ config TTY
   help
     usage: tty [-s]
 
-    Show filename of terminal connected to stdin.
-
-    Prints "not a tty" and exits with nonzero status if no terminal
-    is connected to stdin.
+    Show filename of terminal connected to stdin. If none print "not a tty"
+    and exit with nonzero status.
 
     -s	Silent, exit code only
 
@@ -1384,7 +1394,6 @@ config TTY
 config ULIMIT
   bool "ulimit"
   default y
-  depends on TOYBOX_PRLIMIT
   help
     usage: ulimit [-P PID] [-SHRacdefilmnpqrstuv] [LIMIT]
 
@@ -1392,16 +1401,17 @@ config ULIMIT
     (or read-only -ap selected) display current value (sizes in bytes).
     Default is ulimit -P $PPID -Sf" (show soft filesize of your shell).
     
-    -S  Set/show soft limit          -H  Set/show hard (maximum) limit
-    -a  Show all limits              -c  Core file size
-    -d  Process data segment         -e  Max scheduling priority
-    -f  Output file size             -i  Pending signal count
-    -l  Locked memory                -m  Resident Set Size
-    -n  Number of open files         -p  Pipe buffer
-    -q  Posix message queue          -r  Max Real-time priority
-    -R  Realtime latency (usec)      -s  Stack size
-    -t  Total CPU time (in seconds)  -u  Maximum processes (under this UID)
-    -v  Virtual memory size          -P  PID to affect (default $PPID)
+    -P  PID to affect (default $PPID)  -a  Show all limits
+    -S  Set/show soft limit            -H  Set/show hard (maximum) limit
+
+    -c  Core file size (blocks)        -d  Process data segment (KiB)
+    -e  Max scheduling priority        -f  File size (KiB)
+    -i  Pending signal count           -l  Locked memory (KiB)
+    -m  Resident Set Size (KiB)        -n  Number of open files
+    -p  Pipe buffer (512 bytes)        -q  POSIX message queues
+    -r  Max realtime priority          -R  Realtime latency (us)
+    -s  Stack size (KiB)               -t  Total CPU time (s)
+    -u  Maximum processes (this UID)   -v  Virtual memory size (KiB)
 
 # toys/posix/uname.c
 config ARCH 
@@ -1411,6 +1421,14 @@ config ARCH
     usage: arch
 
     Print machine (hardware) name, same as uname -m.
+
+config LINUX32
+  bool "linux32"
+  default y
+  help
+    usage: linux32 [COMMAND...]
+
+    Tell uname -m to line to autoconf (to build 32 bit binaries on 64 bit kernel).
 
 config UNAME
   bool "uname"
@@ -1425,7 +1443,8 @@ config UNAME
     -r	Kernel Release number
     -v	Kernel Version 
     -m	Machine (hardware) name
-    -a	All of the above
+    -o	Userspace type
+    -a	All of the above (in order)
 
 # toys/posix/uniq.c
 config UNIQ
@@ -1498,7 +1517,6 @@ config WC
 config WHO
   bool "who"
   default y
-  depends on TOYBOX_UTMPX
   help
     usage: who
 
@@ -1526,7 +1544,7 @@ config XARGS
     -t	Trace, print command line to stderr
 
 endmenu
-menu "pending (see toys/pending/README)"
+menu "Pending (unfinished) commands"
 
 # toys/pending/arp.c
 config ARP
@@ -1540,17 +1558,17 @@ config ARP
     [-v]  [-H HWTYPE] [-i IF] -s HOSTNAME HWADDR [netmask MASK] pub
     [-v]  [-H HWTYPE] [-i IF] -Ds HOSTNAME IFACE [netmask MASK] pub
 
-    Manipulate ARP cache
+    Manipulate ARP cache.
 
-    -a    Display (all) hosts
-    -s    Set new ARP entry
-    -d    Delete a specified entry
-    -v    Verbose
-    -n    Don't resolve names
-    -i IF Network interface
-    -D    Read <hwaddr> from given device
-    -A,-p AF  Protocol family
-    -H    HWTYPE Hardware address type
+    -a	Display (all) hosts
+    -s	Set new ARP entry
+    -d	Delete a specified entry
+    -v	Verbose
+    -n	Don't resolve names
+    -i IFACE	Network interface
+    -D	Read <hwaddr> from given device
+    -A,-p AF	Protocol family
+    -H HWTYPE	Hardware address type
 
 
 # toys/pending/arping.c
@@ -1608,11 +1626,11 @@ config BOOTCHARTD
   help
     usage: bootchartd {start [PROG ARGS]}|stop|init
 
-    Create /var/log/bootlog.tgz with boot chart data
+    Record boot chart data into /var/log/bootlog.tgz
 
     start: start background logging; with PROG, run PROG,
-           then kill logging with USR1
-    stop:  send USR1 to all bootchartd processes
+           then kill logging with SIGUSR1
+    stop:  send SIGUSR1 to all bootchartd processes
     init:  start background logging; stop when getty/xdm is seen
           (for init scripts)
 
@@ -1641,6 +1659,19 @@ config BRCTL
     setportprio BRIDGE PORT PRIO   Set port priority
     setbridgeprio BRIDGE PRIO      Set bridge priority
     stp BRIDGE [1/yes/on|0/no/off] STP on/off
+
+# toys/pending/chsh.c
+config CHSH
+  bool "chsh"
+  default n
+  help
+    usage: chsh [-s SHELL] [USER]
+
+    Change user's login shell.
+
+    -s	Use SHELL instead of prompting
+
+    Non-root users can only change their own shell to one listed in /etc/shells.
 
 # toys/pending/crond.c
 config CROND
@@ -1683,65 +1714,28 @@ config DD
   bool "dd"
   default n
   help
-    usage: dd [if=FILE] [of=FILE] [ibs=N] [obs=N] [iflag=FLAGS] [oflag=FLAGS]
-            [bs=N] [count=N] [seek=N] [skip=N]
-            [conv=notrunc|noerror|sync|fsync] [status=noxfer|none]
+    usage: dd [if|of=FILE] [ibs|obs|bs|count|seek|skip=N] [conv|status|iflag|oflag=FLAG[,FLAG...]]
 
-    Copy/convert files.
+    Copy/convert blocks of data from input to output, with the following
+    keyword=value modifiers (and their default values):
 
-    if=FILE		Read from FILE instead of stdin
-    of=FILE		Write to FILE instead of stdout
-    bs=N		Read and write N bytes at a time
-    ibs=N		Input block size
-    obs=N		Output block size
-    count=N		Copy only N input blocks
-    skip=N		Skip N input blocks
-    seek=N		Skip N output blocks
-    iflag=FLAGS	Set input flags
-    oflag=FLAGS	Set output flags
-    conv=notrunc	Don't truncate output file
-    conv=noerror	Continue after read errors
-    conv=sync	Pad blocks with zeros
-    conv=fsync	Physically write data out before finishing
-    status=noxfer	Don't show transfer rate
-    status=none	Don't show transfer rate or records in/out
+    if=FILE  Read FILE (stdin)          of=FILE  Write to FILE (stdout)
+       bs=N  Block size in bytes (512)  count=N  Stop after copying N blocks (all)
+      ibs=N  Input block size (bs=)       obs=N  Output block size (bs=)
+     skip=N  Skip N input blocks (0)     seek=N  Skip N output blocks (0)
 
-    FLAGS is a comma-separated list of:
+    Each =N value accepts the normal unit suffixes (see toybox --help).
 
-    count_bytes	(iflag) interpret count=N in bytes, not blocks
-    seek_bytes	(oflag) interpret seek=N in bytes, not blocks
-    skip_bytes	(iflag) interpret skip=N in bytes, not blocks
+    These modifiers take a comma separated list of potential options:
 
-    Numbers may be suffixed by c (*1), w (*2), b (*512), kD (*1000), k (*1024),
-    MD (*1000*1000), M (*1024*1024), GD (*1000*1000*1000) or G (*1024*1024*1024).
-
-# toys/pending/dhcp6.c
-config DHCP6
-  bool "dhcp6"
-  default n
-  help
-  usage: dhcp6 [-fbnqvR] [-i IFACE] [-r IP] [-s PROG] [-p PIDFILE]
-
-        Configure network dynamically using DHCP.
-
-      -i Interface to use (default eth0)
-      -p Create pidfile
-      -s Run PROG at DHCP events
-      -t Send up to N Solicit packets
-      -T Pause between packets (default 3 seconds)
-      -A Wait N seconds after failure (default 20)
-      -f Run in foreground
-      -b Background if lease is not obtained
-      -n Exit if lease is not obtained
-      -q Exit after obtaining lease
-      -R Release IP on exit
-      -S Log to syslog too
-      -r Request this IP address
-      -v Verbose
-
-      Signals:
-      USR1  Renew current lease
-      USR2  Release current lease
+    iflag=count_bytes,skip_bytes   count=N or skip=N is in bytes not blocks
+    oflag=seek_bytes,append        seek=N is in bytes, append output to file
+    status=noxfer,none             don't show transfer rate, no summary info
+    conv=
+      notrunc  Don't truncate output    noerror  Continue after read errors
+      sync     Zero pad short reads     fsync    Flush output to disk at end
+      sparse   Seek past zeroed output  excl     Fail if output file exists
+      nocreat  Fail if of=FILE missing
 
 # toys/pending/dhcp.c
 config DHCP
@@ -1782,6 +1776,34 @@ config DHCP
       USR2  Release current lease
 
 
+# toys/pending/dhcp6.c
+config DHCP6
+  bool "dhcp6"
+  default n
+  help
+  usage: dhcp6 [-fbnqvR] [-i IFACE] [-r IP] [-s PROG] [-p PIDFILE]
+
+        Configure network dynamically using DHCP.
+
+      -i Interface to use (default eth0)
+      -p Create pidfile
+      -s Run PROG at DHCP events
+      -t Send up to N Solicit packets
+      -T Pause between packets (default 3 seconds)
+      -A Wait N seconds after failure (default 20)
+      -f Run in foreground
+      -b Background if lease is not obtained
+      -n Exit if lease is not obtained
+      -q Exit after obtaining lease
+      -R Release IP on exit
+      -S Log to syslog too
+      -r Request this IP address
+      -v Verbose
+
+      Signals:
+      USR1  Renew current lease
+      USR2  Release current lease
+
 # toys/pending/dhcpd.c
 config DHCPD
   bool "dhcpd"
@@ -1805,27 +1827,33 @@ config DIFF
   bool "diff"
   default n
   help
-  usage: diff [-abBdiNqrTstw] [-L LABEL] [-S FILE] [-U LINES] FILE1 FILE2
+  usage: diff [-abBdiNqrTstw] [-L LABEL] [-S FILE] [-U LINES] [-F REGEX ] FILE1 FILE2
 
   -a	Treat all files as text
   -b	Ignore changes in the amount of whitespace
   -B	Ignore changes whose lines are all blank
   -d	Try hard to find a smaller set of changes
+  -F 	Show the most recent line matching the regex
   -i	Ignore case differences
   -L	Use LABEL instead of the filename in the unified header
   -N	Treat absent files as empty
   -q	Output only whether files differ
   -r	Recurse
   -S	Start with FILE when comparing directories
-  -T	Make tabs line up by prefixing a tab when necessary
   -s	Report when two files are the same
+  -T	Make tabs line up by prefixing a tab when necessary
   -t	Expand tabs to spaces in output
   -u	Unified diff
   -U	Output LINES lines of context
   -w	Ignore all whitespace
 
-  --color              Colored output
-  --strip-trailing-cr  Strip trailing '\r's from input lines
+  --color     Color output   --strip-trailing-cr   Strip '\r' from input lines
+  --TYPE-line-format=FORMAT  Display TYPE (unchanged/old/new) lines using FORMAT
+    FORMAT uses printf integer escapes (ala %-2.4x) followed by LETTER: FELMNn
+  Supported format specifiers are:
+  * %l, the contents of the line, without the trailing newline
+  * %L, the contents of the line, including the trailing newline
+  * %%, the character '%'
 
 # toys/pending/dumpleases.c
 config DUMPLEASES
@@ -1971,6 +1999,48 @@ config GETTY
     -I INITSTR  Send INITSTR before anything else
     -H HOST    Log HOST into the utmp file as the hostname
 
+# toys/pending/git.c
+config GITCOMPAT
+  bool "gitcompat"
+  default n
+  help
+    Enable git compatible repos instead of minimal clone downloader.
+
+config GITCLONE
+  bool "gitclone"
+  default n
+  help
+    usage: gitclone URL
+    A minimal git clone.
+
+config GITINIT
+  bool "gitinit"
+  default n
+  help
+    usage: gitinit NAME
+    A minimal git init.
+
+config GITREMOTE
+  bool "gitremote"
+  default n
+  help
+    usage: gitremote URL
+    A minimal git remote add origin.
+
+config GITFETCH
+  bool "gitfetch"
+  default n
+  help
+    usage: gitfetch
+    A minimal git fetch.
+
+config GITCHECKOUT
+  bool "gitcheckout"
+  default n
+  help
+    usage: gitcheckout <branch>
+    A minimal git checkout.
+
 # toys/pending/groupadd.c
 config GROUPADD
   bool "groupadd"
@@ -1992,20 +2062,30 @@ config GROUPDEL
 
     Delete a group or remove a user from a group
 
-# toys/pending/host.c
-config HOST
-  bool "host"
+# toys/pending/hexdump.c
+config HEXDUMP
+  bool "hexdump"
   default n
   help
-    usage: host [-av] [-t TYPE] NAME [SERVER]
+    usage: hexdump [-bcCdovx] [-n LEN] [-s SKIP] [FILE...]
 
-    Perform DNS lookup on NAME, which can be a domain name to lookup,
-    or an IPv4 dotted or IPv6 colon-separated address to reverse lookup.
-    SERVER (if present) is the DNS server to use.
+    Dump file(s) in hexadecimal format.
 
-    -a	-v -t ANY
-    -t TYPE	query records of type TYPE
-    -v	verbose
+    -n LEN	Show LEN bytes of output
+    -s SKIP	Skip bytes of input
+    -v	Verbose (don't combine identical lines)
+
+    Display type:
+    -b One byte octal   -c One byte character -C Canonical (hex + ASCII)
+    -d Two byte decimal -o Two byte octal     -x Two byte hexadecimal (default)
+
+config HD
+  bool "hd"
+  default HEXDUMP
+  help
+    usage: hd [FILE...]
+
+    Display file(s) in cannonical hex+ASCII format.
 
 # toys/pending/init.c
 config INIT
@@ -2227,14 +2307,14 @@ config MODPROBE
     modprobe utility - inserts modules and dependencies.
 
     -a  Load multiple MODULEs
+    -b  Apply blacklist to module names too
+    -D  Show dependencies
     -d  Load modules from DIR, option may be used multiple times
     -l  List (MODULE is a pattern)
-    -r  Remove MODULE (stacks) or do autoclean
     -q  Quiet
-    -v  Verbose
+    -r  Remove MODULE (stacks) or do autoclean
     -s  Log to syslog
-    -D  Show dependencies
-    -b  Apply blacklist to module names too
+    -v  Verbose
 
 # toys/pending/more.c
 config MORE
@@ -2244,52 +2324,6 @@ config MORE
     usage: more [FILE...]
 
     View FILE(s) (or stdin) one screenfull at a time.
-
-# toys/pending/openvt.c
-config OPENVT
-  bool "openvt"
-  default n
-  depends on TOYBOX_FORK
-  help
-    usage: openvt [-c NUM] [-sw] [COMMAND...]
-
-    Start a program on a new virtual terminal.
-
-    -c NUM  Use VT NUM
-    -s    Switch to new VT
-    -w    Wait for command to exit
-
-    Together -sw switch back to originating VT when command completes.
-
-config DEALLOCVT
-  bool "deallocvt"
-  default n
-  help
-    usage: deallocvt [NUM]
-
-    Deallocate unused virtual terminals, either a specific /dev/ttyNUM, or all.
-
-# toys/pending/readelf.c
-config READELF
-  bool "readelf"
-  default n
-  help
-    usage: readelf [-adehlnSs] [-p SECTION] [-x SECTION] [file...]
-
-    Displays information about ELF files.
-
-    -a	Equivalent to -dhlnSs
-    -d	Show dynamic section
-    -e	Headers (equivalent to -hlS)
-    -h	Show ELF header
-    -l	Show program headers
-    -n	Show notes
-    -p S	Dump strings found in named/numbered section
-    -S	Show section headers
-    -s	Show symbol tables (.dynsym and .symtab)
-    -x S	Hex dump of named/numbered section
-
-    --dyn-syms	Show just .dynsym symbol table
 
 # toys/pending/route.c
 config ROUTE
@@ -2327,10 +2361,62 @@ config SH
     usage: sh [-c command] [script]
 
     Command shell.  Runs a shell script, or reads input interactively
-    and responds to it.
+    and responds to it. Roughly compatible with "bash". Run "help" for
+    list of built-in commands.
 
     -c	command line to execute
     -i	interactive mode (default when STDIN is a tty)
+    -s	don't run script (args set $* parameters but read commands from stdin)
+
+    Command shells parse each line of input (prompting when interactive), perform
+    variable expansion and redirection, execute commands (spawning child processes
+    and background jobs), and perform flow control based on the return code.
+
+    Parsing:
+      syntax errors
+
+    Interactive prompts:
+      line continuation
+
+    Variable expansion:
+      Note: can cause syntax errors at runtime
+
+    Redirection:
+      HERE documents (parsing)
+      Pipelines (flow control and job control)
+
+    Running commands:
+      process state
+      builtins
+        cd [[ ]] (( ))
+        ! : [ # TODO: help for these?
+        true false help echo kill printf pwd test
+      child processes
+
+    Job control:
+      &    Background process
+      Ctrl-C kill process
+      Ctrl-Z suspend process
+      bg fg jobs kill
+
+    Flow control:
+    ;    End statement (same as newline)
+    &    Background process (returns true unless syntax error)
+    &&   If this fails, next command fails without running
+    ||   If this succeeds, next command succeeds without running
+    |    Pipelines! (Can of worms...)
+    for {name [in...]}|((;;)) do; BODY; done
+    if TEST; then BODY; fi
+    while TEST; do BODY; done
+    case a in X);; esac
+    [[ TEST ]]
+    ((MATH))
+
+    Job control:
+    &    Background process
+    Ctrl-C kill process
+    Ctrl-Z suspend process
+    bg fg jobs kill
 
 # These are here for the help text, they're not selectable and control nothing
 config CD
@@ -2338,12 +2424,32 @@ config CD
   default n
   depends on SH
   help
-    usage: cd [-PL] [path]
+    usage: cd [-PL] [-] [path]
 
-    Change current directory.  With no arguments, go $HOME.
+    Change current directory. With no arguments, go $HOME. Sets $OLDPWD to
+    previous directory: cd - to return to $OLDPWD.
 
     -P	Physical path: resolve symlinks in path
     -L	Local path: .. trims directories off $PWD (default)
+
+config DECLARE
+  bool
+  default n
+  depends on SH
+  help
+    usage: declare [-pAailunxr] [NAME...]
+
+    Set or print variable attributes and values.
+
+    -p	Print variables instead of setting
+    -A	Associative array
+    -a	Indexed array
+    -i	Integer
+    -l	Lower case
+    -n	Name reference (symlink)
+    -r	Readonly
+    -u	Uppercase
+    -x	Export
 
 config EXIT
   bool
@@ -2354,6 +2460,24 @@ config EXIT
 
     Exit shell.  If no return value supplied on command line, use value
     of most recent command, or 0 if none.
+
+config SET
+  bool
+  default n
+  depends on SH
+  help
+    usage: set [+a] [+o OPTION] [VAR...]
+
+    Set variables and shell attributes. Use + to disable and - to enable.
+    NAME=VALUE arguments assign to the variable, any leftovers set $1, $2...
+    With no arguments, prints current variables.
+
+    -f	NAME is a function
+    -v	NAME is a variable
+    -n	don't follow name reference
+
+    OPTIONs:
+      history - enable command history
 
 config UNSET
   bool
@@ -2415,6 +2539,17 @@ config JOBS
     -r Show running processes
     -s Show stopped processes
 
+config LOCAL
+  bool
+  default n
+  depends on SH
+  help
+    usage: local [NAME[=VALUE]...]
+
+    Create a local variable that lasts until return from this function.
+    With no arguments lists local variables in current function context.
+    TODO: implement "declare" options.
+
 config SHIFT
   bool
   default n
@@ -2433,6 +2568,30 @@ config SOURCE
     usage: source FILE [ARGS...]
 
     Read FILE and execute commands. Any ARGS become positional parameters.
+
+config WAIT
+  bool
+  default n
+  depends on SH
+  help
+    usage: wait [-n] [ID...]
+
+    Wait for background processes to exit, returning its exit code.
+    ID can be PID or job, with no IDs waits for all backgrounded processes.
+
+    -n	Wait for next process to exit
+
+# toys/pending/strace.c
+config STRACE
+  bool "strace"
+  default n
+  help
+    usage: strace [-fv] [-p PID] [-s NUM] COMMAND [ARGS...]
+
+    Trace systems calls made by a process.
+
+    -s	String length limit.
+    -v	Dump all of large structs/arrays.
 
 # toys/pending/stty.c
 config STTY
@@ -2467,7 +2626,6 @@ config STTY
 config SULOGIN
   bool "sulogin"
   default n
-  depends on TOYBOX_SHADOW
   help
     usage: sulogin [-t time] [tty]
 
@@ -2532,7 +2690,7 @@ config TELNET
   help
     usage: telnet HOST [PORT]
 
-    Connect to telnet server
+    Connect to telnet server.
 
 # toys/pending/telnetd.c
 config TELNETD
@@ -2580,6 +2738,19 @@ config TFTPD
     -u	run as USER
     -l	Log to syslog (inetd mode requires this)
 
+# toys/pending/tr.c
+config TR
+  bool "tr"
+  default n
+  help
+    usage: tr [-cds] SET1 [SET2]
+
+    Translate, squeeze, or delete characters from stdin, writing to stdout
+
+    -c/-C  Take complement of SET1
+    -d     Delete input characters coded SET1
+    -s     Squeeze multiple output characters of SET2 into one character
+
 # toys/pending/traceroute.c
 config TRACEROUTE
   bool "traceroute"
@@ -2612,19 +2783,6 @@ config TRACEROUTE
     -z    Pause Time in ms (default 0)(RANGE 0 to 86400) (supports IPV4 only)
     -f    Start from the 1ST_TTL hop (instead from 1)(RANGE 1 to 255) (supports IPV4 only)
     -i    Specify a network interface to operate with
-
-# toys/pending/tr.c
-config TR
-  bool "tr"
-  default n
-  help
-    usage: tr [-cds] SET1 [SET2]
-
-    Translate, squeeze, or delete characters from stdin, writing to stdout
-
-    -c/-C  Take complement of SET1
-    -d     Delete input characters coded SET1
-    -s     Squeeze multiple output characters of SET2 into one character
 
 # toys/pending/useradd.c
 config USERADD
@@ -2662,22 +2820,11 @@ config VI
   default n
   help
     usage: vi [-s script] FILE
-    -s script: run script file
+
     Visual text editor. Predates the existence of standardized cursor keys,
     so the controls are weird and historical.
 
-# toys/pending/wget.c
-config WGET
-  bool "wget"
-  default n
-  help
-    usage: wget -O filename URL
-    -O filename: specify output filename
-    URL: uniform resource location, FTP/HTTP only, not HTTPS
-
-    examples:
-      wget -O index.html http://www.example.com
-      wget -O sample.jpg ftp://ftp.example.com:21/sample.jpg
+    -s script: run script file
 
 # toys/pending/xzcat.c
 config XZCAT
@@ -2716,6 +2863,16 @@ config ASCII
 
     Display ascii character set.
 
+config UNICODE
+  bool "unicode"
+  default y
+  help
+    usage: unicode CODE[-END]...
+
+    Convert between Unicode code points and UTF-8, in both directions.
+    CODE can be one or more characters (show U+XXXX), hex numbers
+    (show character), or dash separated range.
+
 # toys/other/base64.c
 config BASE64
   bool "base64"
@@ -2724,6 +2881,18 @@ config BASE64
     usage: base64 [-di] [-w COLUMNS] [FILE...]
 
     Encode or decode in base64.
+
+    -d	Decode
+    -i	Ignore non-alphabetic characters
+    -w	Wrap output at COLUMNS (default 76 or 0 for no wrap)
+
+config BASE32
+  bool "base32"
+  default y
+  help
+    usage: base32 [-di] [-w COLUMNS] [FILE...]
+
+    Encode or decode in base32.
 
     -d	Decode
     -i	Ignore non-alphabetic characters
@@ -2753,12 +2922,13 @@ config BLKID
   bool "blkid"
   default y
   help
-    usage: blkid [-s TAG] [-UL] DEV...
+    usage: blkid [-o TYPE] [-s TAG] [-UL] DEV...
 
     Print type, label and UUID of filesystem on a block device or image.
 
     -U	Show UUID only (or device with that UUID)
     -L	Show LABEL only (or device with that LABEL)
+    -o TYPE	Output format (full, value, export)
     -s TAG	Only show matching tags (default all)
 
 config FSTYPE
@@ -2857,19 +3027,6 @@ config CHRT
       -o  SCHED_OTHER    -f  SCHED_FIFO    -r  SCHED_RR
       -b  SCHED_BATCH    -i  SCHED_IDLE
 
-# toys/other/chvt.c
-config CHVT
-  bool "chvt"
-  default y
-  help
-    usage: chvt N
-
-    Change to virtual terminal number N. (This only works in text mode.)
-
-    Virtual terminals are the Linux VGA text mode displays, ordinarily
-    switched between via alt-F1, alt-F2, etc. Use ctrl-alt-F1 to switch
-    from X to a virtual terminal, and alt-F6 (or F7, or F8) to get back.
-
 # toys/other/clear.c
 config CLEAR
   bool "clear"
@@ -2893,9 +3050,8 @@ config DEVMEM
   help
     usage: devmem ADDR [WIDTH [DATA]]
 
-    Read/write physical address via /dev/mem.
-
-    WIDTH is 1, 2, 4, or 8 bytes (default 4).
+    Read/write physical address. WIDTH is 1, 2, 4, or 8 bytes (default 4).
+    Prefix ADDR with 0x for hexadecimal, output is in same base as address.
 
 # toys/other/dos2unix.c
 config DOS2UNIX
@@ -2937,6 +3093,9 @@ config FACTOR
     usage: factor NUMBER...
 
     Factor integers.
+
+    -h	Human readable: show repeated factors as x^n
+    -x	Hexadecimal output
 
 # toys/other/fallocate.c
 config FALLOCATE
@@ -2982,7 +3141,7 @@ config FREE
 
     Display the total, free and used amount of physical memory and swap space.
 
-    -bkmgt	Output units (default is bytes)
+    -bkmg	Output units (default is bytes)
     -h	Human readable (K=1024)
 
 # toys/other/freeramdisk.c
@@ -2998,7 +3157,6 @@ config FREERAMDISK
 config FSFREEZE
   bool "fsfreeze"
   default y
-  depends on TOYBOX_FIFREEZE
   help
     usage: fsfreeze {-f | -u} MOUNTPOINT
 
@@ -3014,9 +3172,56 @@ config FSYNC
   help
     usage: fsync [-d] [FILE...]
 
-    Synchronize a file's in-core state with storage device.
+    Flush disk cache for FILE(s), writing cached data to storage device.
 
-    -d	Avoid syncing metadata
+    -d	Skip directory info (sync file contents only).
+
+# toys/other/gpiod.c
+config GPIODETECT
+  bool "gpiodetect"
+  default y
+  help
+    usage: gpiodetect
+
+    Show all gpio chips' names, labels, and number of lines.
+
+config GPIOFIND
+  bool "gpiofind"
+  default y
+  help
+    usage: gpiofind NAME
+
+    Show the chip and line number for the given line name.
+
+config GPIOINFO
+  bool "gpioinfo"
+  default y
+  help
+    usage: gpioinfo [CHIP...]
+
+    Show gpio chips' lines.
+
+config GPIOGET
+  bool "gpioget"
+  default y
+  help
+    usage: gpioget [-l] CHIP LINE...
+
+    Gets the values of the given lines on CHIP. Use gpiofind to convert line
+    names to numbers.
+
+    -l	Active low
+
+config GPIOSET
+  bool "gpioset"
+  default y
+  help
+    usage: gpioset [-l] CHIP LINE=VALUE...
+
+    Set the lines on CHIP to the given values. Use gpiofind to convert line
+    names to numbers.
+
+    -l	Active low
 
 # toys/other/help.c
 config HELP
@@ -3038,18 +3243,22 @@ config HEXEDIT
   bool "hexedit"
   default y
   help
-    usage: hexedit FILENAME
+    usage: hexedit FILE
 
-    Hexadecimal file editor. All changes are written to disk immediately.
+    Hexadecimal file editor/viewer. All changes are written to disk immediately.
 
     -r	Read only (display but don't edit)
 
     Keys:
-    Arrows        Move left/right/up/down by one line/column
-    Pg Up/Pg Dn   Move up/down by one page
-    0-9, a-f      Change current half-byte to hexadecimal value
-    u             Undo
-    q/^c/^d/<esc> Quit
+    Arrows         Move left/right/up/down by one line/column
+    PgUp/PgDn      Move up/down by one page
+    Home/End       Start/end of line (start/end of file with ctrl)
+    0-9, a-f       Change current half-byte to hexadecimal value
+    ^J or :        Jump (+/- for relative offset, otherwise absolute address)
+    ^F or /        Find string (^G/n: next, ^D/p: previous match)
+    u              Undo
+    x              Toggle bw/color display
+    q/^C/^Q/Esc    Quit
 
 # toys/other/hwclock.c
 config HWCLOCK
@@ -3073,17 +3282,18 @@ config I2CDETECT
   bool "i2cdetect"
   default y
   help
-    usage: i2cdetect [-ary] BUS [FIRST LAST]
+    usage: i2cdetect [-aqry] BUS [FIRST LAST]
     usage: i2cdetect -F BUS
     usage: i2cdetect -l
 
     Detect i2c devices.
 
-    -a	All addresses (0x00-0x7f rather than 0x03-0x77)
+    -a	All addresses (0x00-0x7f rather than 0x03-0x77 or FIRST-LAST)
     -F	Show functionality
-    -l	List all buses
+    -l	List available buses
+    -q	Probe with SMBus Quick Write (default)
     -r	Probe with SMBus Read Byte
-    -y	Answer "yes" to confirmation prompts (for script use)
+    -y	Skip confirmation prompts (yes to all)
 
 config I2CDUMP
   bool "i2cdump"
@@ -3094,18 +3304,18 @@ config I2CDUMP
     Dump i2c registers.
 
     -f	Force access to busy devices
-    -y	Answer "yes" to confirmation prompts (for script use)
+    -y	Skip confirmation prompts (yes to all)
 
 config I2CGET
   bool "i2cget"
   default y
   help
-    usage: i2cget [-fy] BUS CHIP ADDR
+    usage: i2cget [-fy] BUS CHIP [ADDR]
 
     Read an i2c register.
 
     -f	Force access to busy devices
-    -y	Answer "yes" to confirmation prompts (for script use)
+    -y	Skip confirmation prompts (yes to all)
 
 config I2CSET
   bool "i2cset"
@@ -3116,7 +3326,23 @@ config I2CSET
     Write an i2c register. MODE is b for byte, w for 16-bit word, i for I2C block.
 
     -f	Force access to busy devices
-    -y	Answer "yes" to confirmation prompts (for script use)
+    -y	Skip confirmation prompts (yes to all)
+
+config I2CTRANSFER
+  bool "i2ctransfer"
+  default y
+  help
+    usage: i2ctransfer [-fy] BUS DESC [DATA...]...
+
+    Make i2c transfers. DESC is 'r' for read or 'w' for write, followed by
+    the number of bytes to read or write, followed by '@' and a 7-bit address.
+    For any message after the first, the '@' and address can be omitted to
+    reuse the previous address. A 'w' DESC must be followed by the number of
+    DATA bytes that was specified in the DESC.
+
+    -f	Force access to busy devices
+    -v	Verbose (show messages sent, not just received)
+    -y	Skip confirmation prompts (yes to all)
 
 # toys/other/inotifyd.c
 config INOTIFYD
@@ -3146,7 +3372,7 @@ config INSMOD
   bool "insmod"
   default y
   help
-    usage: insmod MODULE [MODULE_OPTIONS]
+    usage: insmod MODULE [OPTION...]
 
     Load the module named MODULE passing options if given.
 
@@ -3181,7 +3407,6 @@ config IORENICE
 config LOGIN
   bool "login"
   default y
-  depends on TOYBOX_SHADOW
   help
     usage: login [-p] [-h host] [-f USERNAME] [USERNAME]
 
@@ -3275,38 +3500,31 @@ config LSMOD
 
     Display the currently loaded modules, their sizes and their dependencies.
 
-# toys/other/lspci.c
+# toys/other/lsusb.c
 config LSPCI
   bool "lspci"
   default y
   help
-    usage: lspci [-ekm]
+    usage: lspci [-ekmn] [-i FILE]
 
     List PCI devices.
 
-    -e	Print all 6 digits in class
-    -k	Print kernel driver
-    -m	Machine readable format
+    -e	Extended (6 digit) class
+    -i	ID database (default /etc/pci.ids[.gz])
+    -k	Show kernel driver
+    -m	Machine readable
+    -n	Numeric output (-nn for both)
+    -x	Hex dump of config space (64 bytes; -xxx for 256, -xxxx for 4096)
 
-config LSPCI_TEXT
-  bool "lspci readable output"
-  depends on LSPCI
-  default y
-  help
-    usage: lspci [-n] [-i FILE ]
-
-    -n	Numeric output (repeat for readable and numeric)
-    -i	PCI ID database (default /usr/share/misc/pci.ids)
-
-
-# toys/other/lsusb.c
 config LSUSB
   bool "lsusb"
   default y
   help
-    usage: lsusb
+    usage: lsusb [-i]
 
     List USB hosts/devices.
+
+    -i	ID database (default /etc/usb.ids[.gz])
 
 # toys/other/makedevs.c
 config MAKEDEVS
@@ -3413,51 +3631,69 @@ config MOUNTPOINT
 # toys/other/nbd_client.c
 config NBD_CLIENT
   bool "nbd-client"
-  depends on TOYBOX_FORK
   default y
   help
-    usage: nbd-client [-ns] HOST PORT DEVICE
+    usage: nbd-client [-ns] [-b BLKSZ] HOST PORT DEVICE
 
-    -n	Do not fork into background
+    -b	Block size (default 4096)
+    -n	Do not daemonize
     -s	nbd swap support (lock server into memory)
+
+# toys/other/nbd_server.c
+config NBD_SERVER
+  bool "nbd-server"
+  default y
+  help
+    usage: nbd-server [-r] FILE
+
+    Serve a Network Block Device from FILE on stdin/out (ala inetd).
+
+    -r	Read only export
 
 # toys/other/nsenter.c
 config UNSHARE
   bool "unshare"
   default y
-  depends on TOYBOX_CONTAINER
   help
     usage: unshare [-imnpuUr] COMMAND...
 
-    Create new container namespace(s) for this process and its children, so
-    some attribute is not shared with the parent process.
+    Create new container namespace(s) for this process and its children, allowing
+    the new set of processes to have a different view of the system than the
+    parent process.
 
+    -a	Unshare all supported namespaces
     -f	Fork command in the background (--fork)
+    -r	Become root (map current euid/egid to 0/0, implies -U) (--map-root-user)
+
+    Available namespaces:
+    -C	Control groups (--cgroup)
     -i	SysV IPC (message queues, semaphores, shared memory) (--ipc)
     -m	Mount/unmount tree (--mount)
     -n	Network address, sockets, routing, iptables (--net)
     -p	Process IDs and init (--pid)
-    -r	Become root (map current euid/egid to 0/0, implies -U) (--map-root-user)
     -u	Host and domain names (--uts)
     -U	UIDs, GIDs, capabilities (--user)
 
-    A namespace allows a set of processes to have a different view of the
-    system than other sets of processes.
+    Each namespace can take an optional argument, a persistent mountpoint usable
+    by the nsenter command to add new processes to that the namespace. (Specify
+    multiple namespaces to unshare separately, ala -c -i -m because -cim is -c
+    with persistent mount "im".)
 
 config NSENTER
   bool "nsenter"
-  depends on TOYBOX_CONTAINER
   default y
   help
     usage: nsenter [-t pid] [-F] [-i] [-m] [-n] [-p] [-u] [-U] COMMAND...
 
     Run COMMAND in an existing (set of) namespace(s).
 
-    -t	PID to take namespaces from    (--target)
+    -a	Enter all supported namespaces (--all)
     -F	don't fork, even if -p is used (--no-fork)
+    -t	PID to take namespaces from    (--target)
 
     The namespaces to switch are:
 
+    -C	Control groups (--cgroup)
     -i	SysV IPC: message queues, semaphores, shared memory (--ipc)
     -m	Mount/unmount tree (--mount)
     -n	Network address, sockets, routing, iptables (--net)
@@ -3492,6 +3728,39 @@ config ONEIT
     Responds to SIGUSR1 by halting the system, SIGUSR2 by powering off,
     and SIGTERM or SIGINT reboot.
 
+# toys/other/openvt.c
+config OPENVT
+  bool "openvt"
+  default y
+  help
+    usage: openvt [-c NUM] [-sw] COMMAND...
+
+    Run COMMAND on a new virtual terminal.
+
+    -c NUM  Use VT NUM
+    -s    Switch to the new VT
+    -w    Wait for command to exit (with -s, deallocates VT on exit)
+
+config CHVT
+  bool "chvt"
+  default y
+  help
+    usage: chvt NUM
+
+    Change to virtual terminal number NUM. (This only works in text mode.)
+
+    Virtual terminals are the Linux VGA text mode (or framebuffer) displays,
+    switched between via alt-F1, alt-F2, etc. Use ctrl-alt-F1 to switch
+    from X11 to a virtual terminal, and alt-F6 (or F7, or F8) to get back.
+
+config DEALLOCVT
+  bool "deallocvt"
+  default y
+  help
+    usage: deallocvt [NUM]
+
+    Deallocate unused virtual terminals, either a specific /dev/ttyNUM, or all.
+
 # toys/other/partprobe.c
 config PARTPROBE
   bool "partprobe"
@@ -3523,12 +3792,13 @@ config PMAP
   bool "pmap"
   default y
   help
-    usage: pmap [-xq] [pids...]
+    usage: pmap [-pqx] PID...
 
     Report the memory map of a process or processes.
 
+    -p	Show full paths
+    -q	Do not show header or footer
     -x	Show the extended format
-    -q	Do not display some header/footer lines
 
 # toys/other/printenv.c
 config PRINTENV
@@ -3550,6 +3820,29 @@ config PWDX
 
     Print working directory of processes listed on command line.
 
+# toys/other/pwgen.c
+config PWGEN
+  bool "pwgen"
+  default y
+  help
+    usage: pwgen [-cAn0yrsBhC1v] [LENGTH] [COUNT]
+
+    Generate human-readable random passwords. When output is to tty produces
+    a screenfull to defeat shoulder surfing (pick one and clear the screen).
+
+    -c  --capitalize                  Permit capital letters.
+    -A  --no-capitalize               Don't include capital letters.
+    -n  --numerals                    Permit numbers.
+    -0  --no-numerals                 Don't include numbers.
+    -y  --symbols                     Permit special characters ($#%...).
+    -r <chars>  --remove=<chars>      Don't include the given characters.
+    -s  --secure                      Generate more random passwords.
+    -B  --ambiguous                   Avoid ambiguous characters (e.g. 0, O).
+    -h  --help                        Print this help message.
+    -C                                Print the output in columns.
+    -1                                Print the output one line each.
+    -v                                Don't include vowels.
+
 # toys/other/readahead.c
 config READAHEAD
   bool "readahead"
@@ -3558,6 +3851,28 @@ config READAHEAD
     usage: readahead FILE...
 
     Preload files into disk cache.
+
+# toys/other/readelf.c
+config READELF
+  bool "readelf"
+  default y
+  help
+    usage: readelf [-adehlnSs] [-p SECTION] [-x SECTION] [file...]
+
+    Displays information about ELF files.
+
+    -a	Equivalent to -dhlnSs
+    -d	Show dynamic section
+    -e	Headers (equivalent to -hlS)
+    -h	Show ELF header
+    -l	Show program headers
+    -n	Show notes
+    -p S	Dump strings found in named/numbered section
+    -S	Show section headers
+    -s	Show symbol tables (.dynsym and .symtab)
+    -x S	Hex dump of named/numbered section
+
+    --dyn-syms	Show just .dynsym symbol table
 
 # toys/other/readlink.c
 config READLINK
@@ -3574,27 +3889,39 @@ config READLINK
     -f	Full path (fail if directory missing)
     -m	Ignore missing entries, show where it would be
     -n	No trailing newline
-    -q	Quiet (no output, just error code)
+    -q	Quiet (no error messages)
+    -z	NUL instead of newline
 
 config REALPATH
   bool "realpath"
   default y
   help
-    usage: realpath FILE...
+    usage: realpath [-LPemqsz] [--relative-base DIR] [-R DIR] FILE...
 
     Display the canonical absolute pathname
+
+    -R Show ../path relative to DIR (--relative-to)
+    -L Logical path (resolve .. before symlinks)
+    -P Physical path (default)
+    -e Canonical path to existing entry (fail if missing)
+    -m Ignore missing entries, show where it would be
+    -q Quiet (no error messages)
+    -s Don't expand symlinks
+    -z NUL instead of newline
+    --relative-base  If path under DIR trim off prefix
 
 # toys/other/reboot.c
 config REBOOT
   bool "reboot"
   default y
   help
-    usage: reboot/halt/poweroff [-fn]
+    usage: reboot/halt/poweroff [-fn] [-d DELAY]
 
-    Restart, halt or powerdown the system.
+    Restart, halt, or power off the system.
 
-    -f	Don't signal init
-    -n	Don't sync before stopping the system
+    -d	Wait DELAY before proceeding (in seconds or m/h/d suffix: -d 1.5m = 90s)
+    -f	Force reboot (don't signal init, reboot directly)
+    -n	Don't sync filesystems before reboot
 
 # toys/other/reset.c
 config RESET
@@ -3619,12 +3946,12 @@ config RMMOD
   bool "rmmod"
   default y
   help
-    usage: rmmod [-wf] [MODULE]
+    usage: rmmod [-wf] MODULE...
 
-    Unload the module named MODULE from the Linux kernel.
+    Unload the given kernel modules.
+
     -f	Force unload of a module
     -w	Wait until the module is no longer used
-
 
 # toys/other/rtcwake.c
 config RTCWAKE
@@ -3679,13 +4006,14 @@ config SETSID
 # toys/other/sha3sum.c
 config SHA3SUM
   bool "sha3sum"
-  default n
+  default y
   help
     usage: sha3sum [-S] [-a BITS] [FILE...]
 
     Hash function du jour.
 
     -a	Produce a hash BITS long (default 224)
+    -b	Brief (hash only, no filename)
     -S	Use SHAKE termination byte instead of SHA3 (ask FIPS why)
 
 # toys/other/shred.c
@@ -3693,7 +4021,7 @@ config SHRED
   bool "shred"
   default y
   help
-    usage: shred [-fuz] [-n COUNT] [-s SIZE] FILE...
+    usage: shred [-fuxz] [-n COUNT] [-o OFFSET] [-s SIZE] FILE...
 
     Securely delete a file by overwriting its contents with random data.
 
@@ -3707,6 +4035,19 @@ config SHRED
 
     Note: data journaling filesystems render this command useless, you must
     overwrite all free space (fill up disk) to erase old data on those.
+
+# toys/other/shuf.c
+config SHUF
+  bool "shuf"
+  default y
+  help
+    usage: shuf [-ze] [-n COUNT] [FILE...]
+
+    Write lines of input to output in random order.
+
+    -z	Input/output lines are NUL terminated.
+    -n	Stop after COUNT many output lines.
+    -e	Echo mode: arguments are inputs to shuffle, not files to read.
 
 # toys/other/stat.c
 config STAT
@@ -3738,17 +4079,17 @@ config STAT
     The valid format escape sequences for filesystems:
     %a  Available blocks    |%b  Total blocks       |%c  Total inodes
     %d  Free inodes         |%f  Free blocks        |%i  File system ID
-    %l  Max filename length |%n  File name          |%s  Fragment size
-    %S  Best transfer size  |%t  FS type (hex)      |%T  FS type (driver name)
+    %l  Max filename length |%n  File name          |%s  Best transfer size
+    %S  Actual block size   |%t  FS type (hex)      |%T  FS type (driver name)
 
 # toys/other/swapoff.c
 config SWAPOFF
   bool "swapoff"
   default y
   help
-    usage: swapoff swapregion
+    usage: swapoff FILE
 
-    Disable swapping on a given swapregion.
+    Disable swapping on a device or file.
 
 # toys/other/swapon.c
 config SWAPON
@@ -3832,7 +4173,7 @@ config TIMEOUT
   bool "timeout"
   default y
   help
-    usage: timeout [-k DURATION] [-s SIGNAL] DURATION COMMAND...
+    usage: timeout [-i] [-k DURATION] [-s SIGNAL] DURATION COMMAND...
 
     Run command line as a child process, sending child a signal if the
     command doesn't exit soon enough.
@@ -3840,8 +4181,9 @@ config TIMEOUT
     DURATION can be a decimal fraction. An optional suffix can be "m"
     (minutes), "h" (hours), "d" (days), or "s" (seconds, the default).
 
-    -s	Send specified signal (default TERM)
+    -i	Only kill for inactivity (restart timeout when command produces output)
     -k	Send KILL signal if child still running this long after first signal
+    -s	Send specified signal (default TERM)
     -v	Verbose
     --foreground       Don't create new process group
     --preserve-status  Exit with the child's exit status
@@ -3862,11 +4204,26 @@ config TRUNCATE
                  / multiple rounding down, % multiple rounding up
     SIZE suffix: k=1024, m=1024^2, g=1024^3, t=1024^4, p=1024^5, e=1024^6
 
+# toys/other/uclampset.c
+config UCLAMPSET
+  bool "uclampset"
+  default y
+  help
+    usage: uclampset [-m MIN] [-M MAX] {-p PID | COMMAND...}
+
+    Set or query process utilization limits ranging from 0 to 1024, or -1 to
+    reset to system default. With no arguments, prints current values.
+
+    -m MIN      Reserve at least this much CPU utilization for task
+    -M MAX      Limit task to at most this much CPU utilization
+    -p PID	Apply to PID rather than new COMMAND
+    -R	Reset child processes to default values on fork
+    -a	Apply to all threads for the given PID
+
 # toys/other/uptime.c
 config UPTIME
   bool "uptime"
   default y
-  depends on TOYBOX_UTMPX
   help
     usage: uptime [-ps]
 
@@ -3928,6 +4285,15 @@ config VMSTAT
 
     -n	Display the header only once
 
+# toys/other/w.c
+config W
+  bool "w"
+  default y
+  help
+    usage: w
+
+    Show who is logged on and since how long they logged in.
+
 # toys/other/watch.c
 config WATCH
   bool "watch"
@@ -3956,16 +4322,6 @@ config WATCHDOG
     -t	poke watchdog every UPDATE seconds (default 4)
     -T	reboot if not poked for DEADLINE seconds (default 60)
 
-# toys/other/w.c
-config W
-  bool "w"
-  default y
-  depends on TOYBOX_UTMPX
-  help
-    usage: w
-
-    Show who is logged on and since how long they logged in.
-
 # toys/other/which.c
 config WHICH
   bool "which"
@@ -3982,19 +4338,20 @@ config XXD
   bool "xxd"
   default y
   help
-    usage: xxd [-c n] [-g n] [-i] [-l n] [-o n] [-p] [-r] [-s n] [file]
+    usage: xxd [-eipr] [-cglos N] [file]
 
-    Hexdump a file to stdout.  If no file is listed, copy from stdin.
+    Hexdump a file to stdout. If no file is listed, copy from stdin.
     Filename "-" is a synonym for stdin.
 
-    -c n	Show n bytes per line (default 16)
-    -g n	Group bytes by adding a ' ' every n bytes (default 2)
-    -i	Include file output format (comma-separated hex byte literals)
-    -l n	Limit of n bytes before stopping (default is no limit)
-    -o n	Add n to display offset
-    -p	Plain hexdump (30 bytes/line, no grouping)
+    -c N	Show N bytes per line (default 16)
+    -e	Little-endian
+    -g N	Group bytes by adding a ' ' every N bytes (default 2)
+    -i	Output include file (CSV hex bytes, plus C header/footer if not stdin)
+    -l N	Limit of N bytes before stopping (default is no limit)
+    -o N	Add N to display offset
+    -p	Plain hexdump (30 bytes/line, no grouping. With -c 0 no wrap/group)
     -r	Reverse operation: turn a hexdump into a binary file
-    -s n	Skip to offset n
+    -s N	Skip to offset N
 
 # toys/other/yes.c
 config YES
@@ -4006,7 +4363,7 @@ config YES
     Repeatedly output line until killed. If no args, output 'y'.
 
 endmenu
-menu "Networking"
+menu "Networking commands"
 
 # toys/net/ftpget.c
 config FTPGET
@@ -4040,6 +4397,33 @@ config FTPPUT
   help
     An ftpget that defaults to -s instead of -g
 
+# toys/net/host.c
+config HOST
+  bool "host"
+  default y
+  help
+    usage: host [-v] [-t TYPE] NAME [SERVER]
+
+    Look up DNS records for NAME, either domain name or IPv4/IPv6 address to
+    reverse lookup, from SERVER or default DNS server(s).
+
+    -a	All records
+    -t TYPE	Record TYPE (number or ANY A AAAA CNAME MX NS PTR SOA SRV TXT)
+    -v	Verbose
+
+# toys/net/httpd.c
+config HTTPD
+  bool "httpd"
+  default y
+  help
+    usage: httpd [-e STR] [DIR]
+
+    Serve contents of directory as static web pages.
+
+    -e	Escape STR as URL, printing result and exiting.
+    -d	Decode escaped STR, printing result and exiting.
+    -v	Verbose
+
 # toys/net/ifconfig.c
 config IFCONFIG
   bool "ifconfig"
@@ -4070,6 +4454,7 @@ config IFCONFIG
     broadcast ADDR   - Set broadcast address
     pointopoint ADDR - PPP and PPPOE use this instead of "route add default gw"
     hw TYPE ADDR     - set hardware (mac) address (type = ether|infiniband)
+    rename NEWNAME   - rename interface
 
     Flags you can set on an interface (or -remove by prefixing with -):
 
@@ -4095,35 +4480,25 @@ config NETCAT
   bool "netcat"
   default y
   help
-    usage: netcat [-46U] [-u] [-wpq #] [-s addr] {IPADDR PORTNUM|-f FILENAME|COMMAND...}
+    usage: netcat [-46ElLtUu] [-wpq #] [-s addr] {IPADDR PORTNUM|-f FILENAME|COMMAND...}
 
     Forward stdin/stdout to a file or network connection.
 
     -4	Force IPv4
     -6	Force IPv6
+    -E	Forward stderr
     -f	Use FILENAME (ala /dev/ttyS0) instead of network
+    -l	Listen for one incoming connection, then exit
+    -L	Listen and background each incoming connection (server mode)
+    -n	No DNS lookup
     -p	Local port number
     -q	Quit SECONDS after EOF on stdin, even if stdout hasn't closed yet
     -s	Local source address
+    -t	Allocate tty
     -u	Use UDP
     -U	Use a UNIX domain socket
     -w	SECONDS timeout to establish connection
     -W	SECONDS timeout for more data on an idle connection
-
-    Use "stty 115200 -F /dev/ttyS0 && stty raw -echo -ctlecho" with
-    netcat -f to connect to a serial port.
-
-config NETCAT_LISTEN
-  bool "netcat server options (-let)"
-  default y
-  depends on NETCAT
-  help
-    usage: netcat [-tElL]
-
-    -l	Listen for one incoming connection, then exit
-    -L	Listen and background each incoming connection (server mode)
-    -t	Allocate tty
-    -E	Forward stderr
 
     When listening the COMMAND line is executed as a child process to handle
     an incoming connection. With no COMMAND -l forwards the connection
@@ -4132,6 +4507,9 @@ config NETCAT_LISTEN
 
     For a quick-and-dirty server, try something like:
     netcat -s 127.0.0.1 -p 1234 -tL sh -l
+
+    Or use "stty 115200 -F /dev/ttyS0 && stty raw -echo -ctlecho" with
+    netcat -f to connect to a serial port.
 
 # toys/net/netstat.c
 config NETSTAT
@@ -4210,10 +4588,10 @@ config SNTP
     -s	Set system clock suddenly
     -a	Adjust system clock gradually
     -S	Serve time instead of querying (bind to SERVER address if specified)
-    -m	Wait for updates from multicast ADDRESS (RFC 4330 default 224.0.1.1)
-    -M	Multicast server on ADDRESS (default 224.0.0.1)
+    -m	Wait for updates from multicast ADDRESS (RFC 4330 suggests 224.0.1.1)
+    -M	Multicast server on ADDRESS (RFC 4330 suggests 224.0.1.1)
     -t	TTL (multicast only, default 1)
-    -d	Daemonize (run in background re-querying )
+    -d	Daemonize (run in background re-querying)
     -D	Daemonize but stay in foreground: re-query time every 1000 seconds
     -r	Retry shift (every 1<<SHIFT seconds)
     -q	Quiet (don't display time)
@@ -4231,6 +4609,30 @@ config TUNCTL
     -d	Delete tun/tap device
     -t	Create tun/tap device
     -u	Set owner (user who can read/write device without root access)
+
+# toys/net/wget.c
+config WGET
+  bool "wget"
+  default y
+  help
+    usage: wget [OPTIONS]... [URL]
+        --max-redirect          maximum redirections allowed
+    -d, --debug                 print lots of debugging information
+    -O, --output-document=FILE  specify output filename
+    -p, --post-data=DATA        send data in body of POST request
+
+    examples:
+      wget http://www.example.com
+
+config WGET_LIBTLS
+  bool "Enable HTTPS support for wget via LibTLS"
+  default n
+  depends on WGET && !TOYBOX_LIBCRYPTO
+  help
+    Enable HTTPS support for wget by linking to LibTLS.
+    Supports using libtls, libretls or libtls-bearssl.
+
+    Use TOYBOX_LIBCRYPTO to enable HTTPS support via OpenSSL.
 
 endmenu
 menu "Linux Standard Base commands"
@@ -4259,7 +4661,7 @@ config GZIP
   bool "gzip"
   default n
   help
-    usage: gzip [-19cdfk] [FILE...]
+    usage: gzip [-19cdfkt] [FILE...]
 
     Compress files. With no files, compresses stdin to stdout.
     On success, the input files are removed and replaced by new
@@ -4269,13 +4671,14 @@ config GZIP
     -d	Decompress (act as gunzip)
     -f	Force: allow overwrite of output file
     -k	Keep input files (default is to remove)
+    -t	Test integrity
     -#	Compression level 1-9 (1:fastest, 6:default, 9:best)
 
 config GUNZIP
   bool "gunzip"
   default y
   help
-    usage: gunzip [-cfk] [FILE...]
+    usage: gunzip [-cfkt] [FILE...]
 
     Decompress files. With no files, decompresses stdin to stdout.
     On success, the input files are removed and replaced by new
@@ -4284,6 +4687,7 @@ config GUNZIP
     -c	Output to stdout (act as zcat)
     -f	Force: allow read from tty
     -k	Keep input files (default is to remove)
+    -t	Test integrity
 
 config ZCAT
   bool "zcat"
@@ -4339,10 +4743,11 @@ config MD5SUM
   bool "md5sum"
   default y
   help
-    usage: md5sum [-bcs] [FILE]...
+    usage: ???sum [-bcs] [FILE]...
 
-    Calculate md5 hash for each input file, reading from stdin if none.
-    Output one hash (32 hex digits) for each input file, followed by filename.
+    Calculate hash for each input file, reading from stdin if none, writing
+    hexadecimal digits to stdout for each input file (md5=32 hex digits,
+    sha1=40, sha224=56, sha256=64, sha384=96, sha512=128) followed by filename.
 
     -b	Brief (hash only, no filename)
     -c	Check each line of each FILE is the same hash+filename we'd output
@@ -4352,43 +4757,31 @@ config SHA1SUM
   bool "sha1sum"
   default y
   help
-    usage: sha?sum [-bcs] [FILE]...
-
-    Calculate sha hash for each input file, reading from stdin if none. Output
-    one hash (40 hex digits for sha1, 56 for sha224, 64 for sha256, 96 for sha384,
-    and 128 for sha512) for each input file, followed by filename.
-
-    -b	Brief (hash only, no filename)
-    -c	Check each line of each FILE is the same hash+filename we'd output
-    -s	No output, exit status 0 if all hashes match, 1 otherwise
+    See md5sum
 
 config SHA224SUM
   bool "sha224sum"
   default y
-  depends on TOYBOX_LIBCRYPTO
   help
-    See sha1sum
+    See md5sum
 
 config SHA256SUM
   bool "sha256sum"
   default y
-  depends on TOYBOX_LIBCRYPTO
   help
-    See sha1sum
+    See md5sum
 
 config SHA384SUM
   bool "sha384sum"
   default y
-  depends on TOYBOX_LIBCRYPTO
   help
-    See sha1sum
+    See md5sum
 
 config SHA512SUM
   bool "sha512sum"
   default y
-  depends on TOYBOX_LIBCRYPTO
   help
-    See sha1sum
+    See md5sum
 
 # toys/lsb/mknod.c
 config MKNOD
@@ -4475,7 +4868,6 @@ config MOUNT
 config PASSWD
   bool "passwd"
   default y
-  depends on TOYBOX_SHADOW
   help
     usage: passwd [-a ALGO] [-dlu] [USER]
 
@@ -4501,12 +4893,12 @@ config PIDOF
   bool "pidof"
   default y
   help
-    usage: pidof [-s] [-o omitpid[,omitpid...]] [NAME]...
+    usage: pidof [-s] [-o omitpid[,omitpid...]] [NAME...]
 
     Print the PIDs of all processes with the given names.
 
-    -s	Single shot, only return one pid
     -o	Omit PID(s)
+    -s	Single shot, only return one pid
     -x	Match shell scripts too
 
 # toys/lsb/seq.c
@@ -4529,7 +4921,6 @@ config SEQ
 config SU
   bool "su"
   default y
-  depends on TOYBOX_SHADOW
   help
     usage: su [-lp] [-u UID] [-g GID,...] [-s SHELL] [-c CMD] [USER [COMMAND...]]
 
@@ -4616,7 +5007,6 @@ config DEMO_SCANKEY
 # toys/example/demo_utf8towc.c
 config DEMO_UTF8TOWC
   bool "demo_utf8towc"
-  depends on TOYBOX_I18N
   default n
   help
     usage: demo_utf8towc
@@ -4644,14 +5034,14 @@ config HOSTID
 
     Print the numeric identifier for the current host.
 
-# toys/example/logwrapper.c
-config LOGWRAPPER
-  bool "logwrapper"
+# toys/example/logpath.c
+config LOGPATH
+  bool "logpath"
   default n
   help
-    usage: logwrapper ...
+    usage: logpath ...
 
-    Append command line to $WRAPLOG, then call second instance
+    Append command line to $LOGPATH, then call second instance
     of command in $PATH.
 
 # toys/example/skeleton.c
@@ -4676,10 +5066,10 @@ config SKELETON_ALIAS
     usage: skeleton_alias [-dq] [-b NUMBER]
 
     Example of a second command with different arguments in the same source
-    file as the first. This allows shared infrastructure not added to lib/.
+    file as the first. This allows shared infrastructure outside of lib/.
 
 endmenu
-menu "Android"
+menu "Android commands"
 
 # toys/android/getenforce.c
 config GETENFORCE
@@ -4707,9 +5097,9 @@ config LOG
   depends on TOYBOX_ON_ANDROID
   default y
   help
-    usage: log [-p PRI] [-t TAG] MESSAGE...
+    usage: log [-p PRI] [-t TAG] [MESSAGE...]
 
-    Logs message to logcat.
+    Logs message (or stdin) to logcat.
 
     -p	Use the given priority instead of INFO:
     	d: DEBUG  e: ERROR  f: FATAL  i: INFO  v: VERBOSE  w: WARN  s: SILENT
