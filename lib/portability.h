@@ -192,7 +192,7 @@ void *memmem(const void *haystack, size_t haystack_length,
 
 // Linux headers not listed by POSIX or LSB
 #include <sys/mount.h>
-#ifdef __linux__
+#if defined(__linux__)  || defined(__onyx__)
 #include <sys/statfs.h>
 #include <sys/swap.h>
 #include <sys/sysinfo.h>
@@ -216,7 +216,7 @@ void *memmem(const void *haystack, size_t haystack_length,
 int personality(int);
 #endif
 
-#if defined(__APPLE__) || defined(__linux__)
+#if defined(__APPLE__) || defined(__linux__) || defined(__onyx__)
 // Linux and macOS has both have getxattr and friends in <sys/xattr.h>, but
 // they aren't compatible.
 #include <sys/xattr.h>

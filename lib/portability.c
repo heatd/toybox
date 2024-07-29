@@ -509,6 +509,16 @@ char *num_to_sig(int sig)
   return NULL;
 }
 
+#define MAJOR_MASK  0xffff0000
+#define MAJOR_SHIFT 16
+#define MINOR_MASK  0x0000ffff
+
+#define MAJOR(x) (unsigned int) ((x & 0xffff0000) >> MAJOR_SHIFT)
+#define MINOR(x) (unsigned int) (x & 0x0000ffff)
+
+#define MKDEV(major, minor) ((major << MAJOR_SHIFT) | minor)
+
+
 int dev_minor(int dev)
 {
 #if defined(__linux__)
@@ -517,6 +527,8 @@ int dev_minor(int dev)
   return dev&0xffffff;
 #elif defined(__FreeBSD__) || defined(__OpenBSD__)
   return minor(dev);
+#elif defined(__onyx__)
+  return MINOR(dev);
 #else
 #error
 #endif
@@ -530,6 +542,8 @@ int dev_major(int dev)
   return (dev>>24)&0xff;
 #elif defined(__FreeBSD__) || defined(__OpenBSD__)
   return major(dev);
+#elif defined(__onyx__)
+  return MAJOR(dev);
 #else
 #error
 #endif
@@ -543,6 +557,8 @@ int dev_makedev(int major, int minor)
   return (minor&0xffffff)|((major&0xff)<<24);
 #elif defined(__FreeBSD__) || defined(__OpenBSD__)
   return makedev(major, minor);
+#elif defined(__onyx__)
+  return MKDEV(major, minor);
 #else
 #error
 #endif

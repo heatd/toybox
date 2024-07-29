@@ -210,18 +210,11 @@ void toy_init(struct toy_list *which, char *argv[])
     }
   }
 
-<<<<<<< HEAD
-||||||| parent of 092c49f9 (toy_init: Fix null-pointer arithmetic when toys.optargs is NULL)
-  // Free old toys contents (to be reentrant), but leave rebound if any
-  // don't blank old optargs if our new argc lives in the old optargs.
-  if (argv<toys.optargs || argv>toys.optargs+toys.optc) free(toys.optargs);
-=======
   // Free old toys contents (to be reentrant), but leave rebound if any
   // don't blank old optargs if our new argc lives in the old optargs.
   if (toys.optargs) {
     if (argv<toys.optargs || argv>toys.optargs+toys.optc) free(toys.optargs);
   }
->>>>>>> 092c49f9 (toy_init: Fix null-pointer arithmetic when toys.optargs is NULL)
   memset(&toys, 0, offsetof(struct toy_context, rebound));
   if (oldwhich) memset(&this, 0, sizeof(this));
 
